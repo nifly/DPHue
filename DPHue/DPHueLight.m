@@ -52,6 +52,7 @@
     [descr appendFormat:@"\tHue: %@\n", self.hue];
     [descr appendFormat:@"\tSaturation: %@\n", self.saturation];
     [descr appendFormat:@"\tColor Temperature: %@\n", self.colorTemperature];
+    [descr appendFormat:@"\tAlert: %@\n", self.alert];
     [descr appendFormat:@"\txy: %@\n", self.xy];
     [descr appendFormat:@"\tPending changes: %@\n", self.pendingChanges];
     return descr;
@@ -120,6 +121,14 @@
         [self write];
 }
 
+- (void)setAlert:(NSString *)alert
+{
+  _alert = alert;
+  self.pendingChanges[@"alert"] = alert;
+  if (!self.holdUpdates)
+    [self write];
+}
+
 - (void)setSaturation:(NSNumber *)saturation {
     _saturation = saturation;
     self.pendingChanges[@"sat"] = saturation;
@@ -143,6 +152,7 @@
         return;
     }
     self.pendingChanges[@"on"] = [NSNumber numberWithBool:self.on];
+    self.pendingChanges[@"alert"] = self.alert;
     self.pendingChanges[@"bri"] = self.brightness;
     // colorMode is set by the bulb itself
     // whichever color value you sent it last determines the mode
@@ -224,6 +234,7 @@
     _reachable = [d[@"state"][@"reachable"] boolValue];
     _xy = d[@"state"][@"xy"];
     _colorTemperature = d[@"state"][@"ct"];
+    _alert = d[@"state"][@"alert"];
     _saturation = d[@"state"][@"sat"];
 }
 
@@ -246,6 +257,7 @@
         _on = [[a decodeObjectForKey:@"on"] boolValue];
         _xy = [a decodeObjectForKey:@"xy"];
         _colorTemperature = [a decodeObjectForKey:@"colorTemperature"];
+        _alert = [a decodeObjectForKey:@"alert"];
         _saturation = [a decodeObjectForKey:@"saturation"];
         _readURL = [a decodeObjectForKey:@"getURL"];
         _writeURL = [a decodeObjectForKey:@"putURL"];
@@ -268,6 +280,7 @@
     [a encodeObject:[NSNumber numberWithBool:self->_on] forKey:@"on"];
     [a encodeObject:_xy forKey:@"xy"];
     [a encodeObject:_colorTemperature forKey:@"colorTemperature"];
+    [a encodeObject:_alert forKey:@"alert"];
     [a encodeObject:_saturation forKey:@"saturation"];
     [a encodeObject:_readURL forKey:@"getURL"];
     [a encodeObject:_writeURL forKey:@"putURL"];
