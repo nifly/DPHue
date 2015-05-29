@@ -45,6 +45,10 @@
 // changes, but this hasn't worked well for me.
 @property (nonatomic, strong) NSNumber *transitionTime;
 
+// Current alert state.
+// Possible values: ["none", "select", "lselect"]
+@property (nonatomic, copy) NSString *alert;
+
 // Set to YES by default.
 // If set to YES, changes are held until [DPHueLight write] is called.
 @property (nonatomic) BOOL holdUpdates;
