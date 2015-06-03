@@ -145,6 +145,25 @@
     });
 }
 
+- (DPHueLight *)lightWithId:(NSNumber *)lightId
+{
+  for ( DPHueLight *light in self.lights ) {
+    if ( [light.number isEqualToNumber:lightId] )
+      return light;
+  }
+  
+  return nil;
+}
+
+- (DPHueLight *)lightWithName:(NSString *)lightName
+{
+  for ( DPHueLight *light in self.lights ) {
+    if ( [light.name isEqualToString:lightName] )
+      return light;
+  }
+  
+  return nil;
+}
 
 #pragma mark - GCDAsyncSocketDelegate
 

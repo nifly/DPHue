@@ -11,6 +11,8 @@
 #import <CocoaAsyncSocket/GCDAsyncSocket.h>
 #import "DPJSONSerializable.h"
 
+@class DPHueLight;
+
 @interface DPHue : NSObject <DPJSONSerializable, NSCoding, GCDAsyncSocketDelegate>
 
 // Properties you may be interested in setting
@@ -98,5 +100,8 @@
 // to a short distance from the controller.
 // Calls block when a response is received from the controller.
 - (void)triggerTouchlinkWithCompletion:(void (^)(BOOL success, NSString *result))block;
+
+- (DPHueLight *)lightWithId:(NSNumber *)lightId;
+- (DPHueLight *)lightWithName:(NSString *)lightName;
 
 @end
