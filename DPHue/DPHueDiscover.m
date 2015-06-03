@@ -7,13 +7,13 @@
 //
 //  https://github.com/danparsons/DPHue
 
-#import <CocoaAsyncSocket/GCDAsyncUdpSocket.h>
 #import "DPHueDiscover.h"
 #import "DPJSONConnection.h"
 #import "DPHueNUPNP.h"
 #import "WSLog.h"
+#import <CocoaAsyncSocket/GCDAsyncUdpSocket.h>
 
-@interface DPHueDiscover ()
+@interface DPHueDiscover () <GCDAsyncUdpSocketDelegate>
 @property (nonatomic, strong) GCDAsyncUdpSocket *udpSocket;
 @property (nonatomic) BOOL foundHue;
 @property (nonatomic, strong) NSMutableString *log;
@@ -53,7 +53,7 @@
   [self appendToLog:[NSString stringWithFormat:@"Making request to %@", req]];
   [connection start];
   // `seconds` seconds later, stop discovering
-  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, seconds * NSEC_PER_SEC), dispatch_get_current_queue(), ^{
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, seconds * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
     // JPR TODO: swap the order to get full log before triggering callback
     block(self.log);
     [self stopDiscovery];

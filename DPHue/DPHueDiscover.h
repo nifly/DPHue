@@ -14,7 +14,6 @@
 // https://github.com/danparsons/QuickHue
 
 #import <Foundation/Foundation.h>
-#import <CocoaAsyncSocket/GCDAsyncUdpSocket.h>
 
 // Conforming to this protocol allows a UI to be informed if a
 // Hue controller was found.
@@ -22,7 +21,7 @@
 - (void)foundHueAt:(NSString *)host discoveryLog:(NSString *)log;
 @end
 
-@interface DPHueDiscover : NSObject <GCDAsyncUdpSocketDelegate>
+@interface DPHueDiscover : NSObject
 
 @property (nonatomic, weak) id<DPHueDiscoverDelegate> delegate;
 

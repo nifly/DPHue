@@ -8,12 +8,11 @@
 //  https://github.com/danparsons/DPHue
 
 #import <Foundation/Foundation.h>
-#import <CocoaAsyncSocket/GCDAsyncSocket.h>
 #import "DPJSONSerializable.h"
 
 @class DPHueLight;
 
-@interface DPHue : NSObject <DPJSONSerializable, NSCoding, GCDAsyncSocketDelegate>
+@interface DPHue : NSObject <NSCoding>
 
 // Properties you may be interested in setting
 

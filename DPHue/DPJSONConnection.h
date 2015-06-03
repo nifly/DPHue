@@ -14,7 +14,7 @@
 #import <Foundation/Foundation.h>
 #import "DPJSONSerializable.h"
 
-@interface DPJSONConnection : NSObject <NSURLConnectionDataDelegate, NSURLConnectionDelegate>
+@interface DPJSONConnection : NSObject
 
 @property (nonatomic, copy) NSURLRequest *request;
 @property (nonatomic, copy) void (^completionBlock)(id obj, NSError *err);

@@ -12,10 +12,14 @@
 
 static NSMutableArray *sharedConnectionList = nil;
 
-@interface DPJSONConnection ()
+
+@interface DPJSONConnection () <NSURLConnectionDataDelegate, NSURLConnectionDelegate>
+
 @property (nonatomic, strong) NSURLConnection *internalConnection;
 @property (nonatomic, strong) NSMutableData *container;
+
 @end
+
 
 @implementation DPJSONConnection
 

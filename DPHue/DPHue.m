@@ -14,7 +14,9 @@
 #import "WSLog.h"
 #import <CocoaAsyncSocket/GCDAsyncSocket.h>
 
-@interface DPHue ()
+
+@interface DPHue () <DPJSONSerializable, GCDAsyncSocketDelegate>
+
 @property (nonatomic, strong, readwrite) NSString *name;
 @property (nonatomic, strong, readwrite) NSString *deviceType;
 @property (nonatomic, strong, readwrite) NSURL *readURL;
@@ -26,6 +28,7 @@
 @property (nonatomic, strong) void (^touchLightCompletionBlock)(BOOL success, NSString *result);
 
 @end
+
 
 @implementation DPHue
 
@@ -135,8 +138,8 @@
         return;
     }
     self.touchLightCompletionBlock = block;
-    // After 5 seconds, stop
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 10), dispatch_get_current_queue(), ^{
+    // After 10 seconds, stop
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 10), dispatch_get_main_queue(), ^{
         if (self.socket) {
             self.touchLightCompletionBlock(NO, @"No response after 10 sec");
             [self.socket disconnect];
