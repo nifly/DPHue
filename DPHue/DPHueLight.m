@@ -229,7 +229,6 @@
     _brightness = d[@"state"][@"bri"];
     _colorMode = d[@"state"][@"colormode"];
     _hue = d[@"state"][@"hue"];
-    _type = d[@"type"];
     _on = [d[@"state"][@"on"] boolValue];
     _reachable = [d[@"state"][@"reachable"] boolValue];
     _xy = d[@"state"][@"xy"];
@@ -249,7 +248,6 @@
         _name = [a decodeObjectForKey:@"name"];
         _modelid = [a decodeObjectForKey:@"modelid"];
         _swversion = [a decodeObjectForKey:@"swversion"];
-        _type = [a decodeObjectForKey:@"type"];
         _brightness = [a decodeObjectForKey:@"brightness"];
         _colorMode = [a decodeObjectForKey:@"colorMode"];
         _hue = [a decodeObjectForKey:@"hue"];
@@ -272,7 +270,6 @@
     [a encodeObject:_name forKey:@"name"];
     [a encodeObject:_modelid forKey:@"modelid"];
     [a encodeObject:_swversion forKey:@"swversion"];
-    [a encodeObject:_type forKey:@"type"];
     [a encodeObject:_brightness forKey:@"brightness"];
     [a encodeObject:_colorMode forKey:@"colorMode"];
     [a encodeObject:_hue forKey:@"hue"];

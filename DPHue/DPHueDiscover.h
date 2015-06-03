@@ -26,8 +26,7 @@
 
 @property (nonatomic, weak) id<DPHueDiscoverDelegate> delegate;
 
-// Designated initializer
-- (id)initWithDelegate:(id<DPHueDiscoverDelegate>)delegate;
+- (id)initWithDelegate:(id<DPHueDiscoverDelegate>)delegate NS_DESIGNATED_INITIALIZER;
 
 // Start discovery process, stopping after specified seconds, calling block when done.
 - (void)discoverForDuration:(int)seconds withCompletion:(void (^)(NSMutableString *log))block;
