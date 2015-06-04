@@ -17,33 +17,33 @@
 
 @interface DPHue () <DPJSONSerializable, GCDAsyncSocketDelegate>
 
-@property (nonatomic, strong, readwrite) NSString *name;
-@property (nonatomic, strong, readwrite) NSString *deviceType;
-@property (nonatomic, strong, readwrite) NSURL *readURL;
-@property (nonatomic, strong, readwrite) NSURL *writeURL;
-@property (nonatomic, strong, readwrite) NSString *swversion;
-@property (nonatomic, strong, readwrite) NSArray *lights;
+@property (nonatomic, strong) NSString *deviceType;
+@property (nonatomic, strong) NSURL *readURL;
+@property (nonatomic, strong) NSURL *writeURL;
 @property (nonatomic, strong) GCDAsyncSocket *socket;
-@property (nonatomic, readwrite) BOOL authenticated;
-@property (nonatomic, strong) void (^touchLightCompletionBlock)(BOOL success, NSString *result);
+@property (nonatomic, copy) void (^touchLightCompletionBlock)(BOOL success, NSString *result);
 
 @end
 
 
 @implementation DPHue
 
-- (id)initWithHueHost:(NSString *)host username:(NSString *)username {
-    self = [super init];
-    if (self) {
-        self.deviceType = @"QuickHue";
-        self.authenticated = NO;
-        self.host = host;
-        self.username = username;
+- (id)initWithHueHost:(NSString *)host username:(NSString *)username
+{
+    if ( self = [super init] )
+    {
+        _deviceType = @"QuickHue";
+        _authenticated = NO;
+        _host = host;
+        _username = username;
+        [self updateURLs];
     }
+  
     return self;
 }
 
-- (void)readWithCompletion:(void (^)(DPHue *, NSError *))block {
+- (void)readWithCompletion:(void (^)(DPHue *, NSError *))block
+{
     NSURLRequest *req = [NSURLRequest requestWithURL:self.readURL];
     DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:req];
     connection.completionBlock = block;
@@ -59,12 +59,9 @@
     NSMutableURLRequest *req = [[NSMutableURLRequest alloc] initWithURL:url];
     req.HTTPMethod = @"POST";
     req.HTTPBody = usernameJson;
+  
+    [self logPendingRequest:req withData:usernameJson];
     DPJSONConnection *conn = [[DPJSONConnection alloc] initWithRequest:req];
-    NSString *pretty = [[NSString alloc] initWithData:usernameJson encoding:NSUTF8StringEncoding];
-    NSMutableString *msg = [[NSMutableString alloc] init];
-    [msg appendFormat:@"Writing to: %@\n", req.URL];
-    [msg appendFormat:@"Writing values: %@\n", pretty];
-    WSLog(@"%@", msg);
     [conn start];
 }
 
@@ -214,7 +211,7 @@
         _authenticated = YES;
     _swversion = d[@"config"][@"swversion"];
     NSMutableArray *tmpLights = [[NSMutableArray alloc] init];
-    for (id lightItem in d[@"lights"]) {
+    for (NSString *lightItem in d[@"lights"]) {
         DPHueLight *light = [[DPHueLight alloc] init];
         [light readFromJSONDictionary:d[@"lights"][lightItem]];
         NSNumberFormatter *f = [[NSNumberFormatter alloc] init];
@@ -248,6 +245,19 @@
     [a encodeObject:_host forKey:@"host"];
     [a encodeObject:_lights forKey:@"lights"];
     [a encodeObject:_username forKey:@"username"];
+}
+
+#pragma mark - Helpers
+
+- (void)logPendingRequest:(NSURLRequest *)request withData:(NSData *)requestData
+{
+#ifdef DEBUG
+  NSString *pretty = [[NSString alloc] initWithData:requestData encoding:NSUTF8StringEncoding];
+  NSMutableString *msg = [NSMutableString new];
+  [msg appendFormat:@"Writing to: %@\n", request.URL];
+  [msg appendFormat:@"Writing values: %@\n", pretty];
+  WSLog(@"%@", msg);
+#endif
 }
 
 @end
