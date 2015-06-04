@@ -15,54 +15,67 @@ static NSMutableArray *sharedConnectionList = nil;
 
 @interface DPJSONConnection () <NSURLConnectionDataDelegate, NSURLConnectionDelegate>
 
-@property (nonatomic, strong) NSURLConnection *internalConnection;
-@property (nonatomic, strong) NSMutableData *container;
+@property (nonatomic, strong) NSURLSessionDataTask *internalTask;
 
 @end
 
 
 @implementation DPJSONConnection
 
-- (id)initWithRequest:(NSURLRequest *)request {
-    self = [super init];
-    if (self)
-        self.request = request;
-    return self;
+- (id)initWithRequest:(NSURLRequest *)request
+{
+  if (self = [super init])
+  {
+    _request = request;
+  }
+  
+  return self;
 }
 
-- (void)start {
-    self.container = [[NSMutableData alloc] init];
-    self.internalConnection = [[NSURLConnection alloc] initWithRequest:self.request delegate:self startImmediately:YES];
-    if (!sharedConnectionList)
-        sharedConnectionList = [[NSMutableArray alloc] init];
-    [sharedConnectionList addObject:self];
-}
-
-#pragma mark - NSURLConnectionDataDelegate
-
-- (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data {
-    [self.container appendData:data];
-}
-
-- (void)connectionDidFinishLoading:(NSURLConnection *)connection {
-    if (self.jsonRootObject) {
-        NSDictionary *d = [NSJSONSerialization JSONObjectWithData:self.container options:0 error:nil];
-        [self.jsonRootObject readFromJSONDictionary:d];
-        if (self.completionBlock)
-            self.completionBlock(self.jsonRootObject, nil);
-    } else { // Didn't specify jsonRootObject, so going to return raw data
-        if (self.completionBlock)
-            self.completionBlock(self.container, nil);
+- (void)start
+{
+  if (!sharedConnectionList)
+    sharedConnectionList = [NSMutableArray new];
+  [sharedConnectionList addObject:self];
+  
+  __weak typeof(self)wkSelf = self;
+  void (^innerCompletionBlock)(id, NSError *) = ^(id obj, NSError *err) {
+    if ( wkSelf.completionBlock )
+    {
+      __strong typeof(wkSelf)strongSelf = wkSelf;
+      dispatch_async(dispatch_get_main_queue(), ^{
+        strongSelf.completionBlock( obj, err );
+      });
     }
-    [sharedConnectionList removeObject:self];
-}
-
-#pragma mark - NSURLConnectionDelegate
-
-- (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error {
-    if (self.completionBlock)
-        self.completionBlock(nil, error);
-    [sharedConnectionList removeObject:self];
+    [sharedConnectionList removeObject:wkSelf];
+  };
+  
+  NSURLSession *session = [NSURLSession sharedSession];
+  self.internalTask = [session dataTaskWithRequest:self.request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+    if ( error )
+    {
+      innerCompletionBlock( nil, error );
+      return;
+    }
+    
+    if (!wkSelf.jsonRootObject)
+    {
+      innerCompletionBlock( data, nil );
+      return;
+    }
+    
+    NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:&error];
+    if ( error )
+    {
+      innerCompletionBlock( nil, error );
+      return;
+    }
+    
+    [wkSelf.jsonRootObject readFromJSONDictionary:json];
+    innerCompletionBlock( wkSelf.jsonRootObject, nil );
+  }];
+  
+  [self.internalTask resume];
 }
 
 @end

@@ -7,7 +7,7 @@
 //
 //  https://github.com/danparsons/DPHue
 
-// DPJSONConnection wraps NSURLConnection and optionally
+// DPJSONConnection wraps NSURLSession and optionally
 // decodes JSON into a supplied object if it conforms to
 // the DPJSONSerializable protocol
 
@@ -16,9 +16,18 @@
 
 @interface DPJSONConnection : NSObject
 
-@property (nonatomic, copy) NSURLRequest *request;
-@property (nonatomic, copy) void (^completionBlock)(id obj, NSError *err);
+@property (nonatomic, readonly, copy) NSURLRequest *request;
 @property (nonatomic, strong) id <DPJSONSerializable> jsonRootObject;
+
+/**
+ Completion handler.
+ 
+ @note Calls back on main queue
+ @param obj If no @p jsonRootObject is provided, this is the raw NSData. Otherwise
+            it is the @p jsonRootObject after calling @p readFromJSONDictionary.
+ */
+@property (nonatomic, copy) void (^completionBlock)(id obj, NSError *err);
+
 
 - (id)initWithRequest:(NSURLRequest *)request;
 - (void)start;

@@ -98,9 +98,4 @@
 // Write entire state to controller, regardless of changes
 - (void)writeAll;
 
-// To be implemented later
-/*- (void)flashOnce;
-- (void)flashRepeatedly;
-- (void)stopFlashing;
-*/
 @end
