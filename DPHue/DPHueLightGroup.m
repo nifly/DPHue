@@ -272,6 +272,24 @@
   return [request copy];
 }
 
+- (NSURLRequest *)requestForUpdatingWithName:(NSString *)groupName lightIds:(NSArray *)lightIds
+{
+  NSURL *url = [self baseURL];
+  
+  NSMutableArray *stringifiedLightIds = [NSMutableArray array];
+  for (NSNumber *lightId in lightIds) {
+    [stringifiedLightIds addObject:[lightId stringValue]];
+  }
+  NSDictionary *groupDict = @{@"name": groupName, @"lights": stringifiedLightIds};
+  // JPR TODO: pass and check error
+  NSData *groupJson = [NSJSONSerialization dataWithJSONObject:groupDict options:0 error:nil];
+  NSMutableURLRequest *request = [NSMutableURLRequest new];
+  request.URL = url;
+  request.HTTPMethod = @"PUT";
+  request.HTTPBody = groupJson;
+  return [request copy];
+}
+
 - (NSURLRequest *)requestForGettingGroupState
 {
   NSURL *url = [self baseURL];
@@ -320,6 +338,12 @@
   }
   
   return self;
+}
+
+// PUT /groups/{id}
+- (instancetype)parseGroupUpdate:(id)json
+{
+  return [self parseGroupStateSet:json];
 }
 
 // GET /groups/{id}

@@ -223,7 +223,6 @@
 - (void)createGroupWithName:(NSString *)name lightIds:(NSArray *)lightIds onCompletion:(void (^)(BOOL success, DPHueLightGroup *group))onCompletionBlock
 {
   // JPR TODO: handle lights being off during creation
-  // JPR TODO: update group if name already exists
   
   DPHueLightGroup *group = [DPHueLightGroup new];
   group.username = self.username;
@@ -240,6 +239,32 @@
       }
       
       [group parseGroupCreation:json];
+      onCompletionBlock( YES, group);
+    };
+  }
+  
+  [conn start];
+}
+
+- (void)updateGroup:(DPHueLightGroup *)group withName:(NSString *)name lightIds:(NSArray *)lightIds onCompletion:(void (^)(BOOL success, DPHueLightGroup *group))onCompletionBlock
+{
+  // JPR TODO: handle lights being off during creation
+  
+  if ( !name )
+    name = group.name;
+  
+  NSURLRequest *request = [group requestForUpdatingWithName:name lightIds:lightIds];
+  DPJSONConnection *conn = [[DPJSONConnection alloc] initWithRequest:request sender:self];
+  if ( onCompletionBlock )
+  {
+    conn.completionBlock = ^(DPHue *sender, id json, NSError *err) {
+      if ( err )
+      {
+        onCompletionBlock( NO, nil );
+        return;
+      }
+      
+      [group parseGroupUpdate:json];
       onCompletionBlock( YES, group);
     };
   }

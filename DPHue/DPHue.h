@@ -136,8 +136,54 @@
  */
 - (DPHueLightGroup *)groupWithName:(NSString *)groupName;
 
-// lightIds = @[ NSNumber ]
-- (void)createGroupWithName:(NSString *)name lightIds:(NSArray *)lightIds onCompletion:(void (^)(BOOL success, DPHueLightGroup *group))onCompletionBlock;
+// JPR TODO: create a `createOrUpdateGroupWithName` method
+
+/**
+ Create a group on the controller.
+ @param name
+          The group name you want. If this is already taken, then the controller
+          will automatically append an auto-incrementing number to this. So,
+          'Jimmy 1' instead of 'Jimmy'.
+ @param lightIds
+          The @p NSNumber light ids of the lights which you want to belong to
+          this group.
+ @param onCompletionBlock
+          Optional callback to be triggered after the creation process completes.<br />
+          <br />
+          The completion block takes two parameters:
+          <ul>
+          <li>success<br />
+                Indicates whether the creation succeeded according to the controller
+          </li>
+          <li>group<br />
+                The resultant group.
+          </li>
+          </ul>
+ */
+- (void)createGroupWithName:(NSString *)name lightIds:(NSArray *)lightIds onCompletion:(void (^)(BOOL success, DPHueLightGroup* group))onCompletionBlock;
+
+/**
+ Update the given group on the controller.
+ @param name
+          The group name you want to update to. If this is nil, the existing name
+          is used.
+ @param lightIds
+          The @p NSNumber light ids of the lights which you want to belong to
+          this group.
+ @param onCompletionBlock
+          Optional callback to be triggered after the creation process completes.<br />
+          <br />
+          The completion block takes two parameters:
+          <ul>
+          <li>success<br />
+                Indicates whether the update succeeded according to the controller
+          </li>
+          <li>group<br />
+                The resultant group.
+          </li>
+          </ul>
+ */
+- (void)updateGroup:(DPHueLightGroup *)group withName:(NSString *)name lightIds:(NSArray *)lightIds onCompletion:(void (^)(BOOL success, DPHueLightGroup* group))onCompletionBlock;
 
 @end
 

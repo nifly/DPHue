@@ -110,6 +110,7 @@
 @interface DPHueLightGroup (HueAPIRequestGeneration)
 
 - (NSURLRequest *)requestForCreatingWithName:(NSString *)groupName lightIds:(NSArray *)lightIds;
+- (NSURLRequest *)requestForUpdatingWithName:(NSString *)groupName lightIds:(NSArray *)lightIds;
 - (NSURLRequest *)requestForGettingGroupState;
 - (NSURLRequest *)requestForSettingGroupState:(NSDictionary *)state;
 
@@ -120,6 +121,9 @@
 
 // POST /groups
 - (instancetype)parseGroupCreation:(id)json;
+
+// PUT /groups/{id}
+- (instancetype)parseGroupUpdate:(id)json;
 
 // GET /groups/{id}
 - (instancetype)parseGroupStateGet:(id)json;
