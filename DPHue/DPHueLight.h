@@ -40,7 +40,7 @@
  Color in (x,y) CIE 1931 coordinates. See below URL for details:<br />
  <a href="http://en.wikipedia.org/wiki/CIE_1931" >http://en.wikipedia.org/wiki/CIE_1931</a>
  */
-@property (nonatomic, strong) NSArray *xy;
+@property (nonatomic, copy) NSArray *xy;
 
 /// Color temperature in mireds, valid values are 154 - 500.
 @property (nonatomic, strong) NSNumber *colorTemperature;
@@ -64,13 +64,13 @@
  
  @note Set to YES by default.
  */
-@property (nonatomic) BOOL holdUpdates;
+@property (nonatomic, assign) BOOL holdUpdates;
 
 
 #pragma mark - Properties you may be interested in reading
 
 /// Lamp name, as returned by the controller.
-@property (nonatomic, strong, readonly) NSString *name;
+@property (nonatomic, readonly, copy) NSString *name;
 
 /**
  The API does not allow changing this value directly. Rather, the color
@@ -78,31 +78,31 @@
  For example, if you last set a lamp's colorTemperature value, then
  colormode would be "ct". If you set hue or saturation, it would be "hs".
  */
-@property (nonatomic, strong, readonly) NSString *colorMode; // "xy", "ct" or "hs"
+@property (nonatomic, readonly, copy) NSString *colorMode; // "xy", "ct" or "hs"
 
 /**
  This returns the controller's best guess as to whether the lamp is
  reachable by the controller or not.
  */
-@property (nonatomic, readonly) BOOL reachable;
+@property (nonatomic, readonly, assign) BOOL reachable;
 
 /// Firmware version of the lamp.
-@property (nonatomic, strong, readonly) NSString *swversion;
+@property (nonatomic, readonly, copy) NSString *swversion;
 
 /// Lamp model type.
-@property (nonatomic, strong, readonly) NSString *type;
+@property (nonatomic, readonly, copy) NSString *type;
 
 /// The number of the lamp, assigned by the controller.
 @property (nonatomic, strong) NSNumber *number;
 
 /// Lamp model ID.
-@property (nonatomic, strong, readonly) NSString *modelid;
+@property (nonatomic, readonly, copy) NSString *modelid;
 
 
 #pragma mark - Properties you can probably ignore
 
-@property (nonatomic, strong) NSString *username;
-@property (nonatomic, strong) NSString *host;
+@property (nonatomic, copy) NSString *username;
+@property (nonatomic, copy) NSString *host;
 
 
 #pragma mark - Methods

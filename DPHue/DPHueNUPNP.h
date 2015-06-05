@@ -15,9 +15,9 @@
 
 @interface DPHueNUPNP : NSObject
 
-@property (nonatomic, copy, readonly) NSString *hueID;
-@property (nonatomic, copy, readonly) NSString *hueIP;
-@property (nonatomic, copy, readonly) NSString *hueMACAddress;
+@property (nonatomic, readonly, copy) NSString *hueID;
+@property (nonatomic, readonly, copy) NSString *hueIP;
+@property (nonatomic, readonly, copy) NSString *hueMACAddress;
 
 @end
 
