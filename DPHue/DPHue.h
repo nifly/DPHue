@@ -8,7 +8,6 @@
 //  https://github.com/danparsons/DPHue
 
 #import <Foundation/Foundation.h>
-#import "DPJSONSerializable.h"
 
 @class DPHueLight;
 
@@ -116,5 +115,23 @@
  @return The found light, or nil
  */
 - (DPHueLight *)lightWithName:(NSString *)lightName;
+
+@end
+
+
+@interface DPHue (HueAPIRequestGeneration)
+
+- (NSURLRequest *)requestForRegisteringUsername:(NSString *)username withDeviceType:(NSString *)deviceType;
+- (NSURLRequest *)requestForReadingControllerState;
+
+@end
+
+
+@interface DPHue (HueAPIJsonParsing)
+
+// POST /
+- (instancetype)parseUsernameRegistration:(id)json;
+// GET /
+- (instancetype)parseControllerState:(id)json;
 
 @end

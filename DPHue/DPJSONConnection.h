@@ -12,24 +12,47 @@
 // the DPJSONSerializable protocol
 
 #import <Foundation/Foundation.h>
-#import "DPJSONSerializable.h"
+
+
+#define REQUEST_LOGGING_ENABLED 0
+
 
 @interface DPJSONConnection : NSObject
 
+
 @property (nonatomic, readonly, copy) NSURLRequest *request;
-@property (nonatomic, strong) id <DPJSONSerializable> jsonRootObject;
+@property (nonatomic, readonly, strong) id sender;
+
 
 /**
  Completion handler.
  
+ @param sender
+          The sender passed in during initialization of the connection. This is a
+          strong reference that will be released upon completion of @p completionBlock.
+ @param json
+          The result from calling @p [NSJSONSerialization JSONObjectWithData]
+          with the result of the request, or nil if unsuccessful.
+ @param err
+          Error encountered during request/parsing, or nil if successful.
+ 
  @note Calls back on main queue
- @param obj If no @p jsonRootObject is provided, this is the raw NSData. Otherwise
-            it is the @p jsonRootObject after calling @p readFromJSONDictionary.
  */
-@property (nonatomic, copy) void (^completionBlock)(id obj, NSError *err);
+@property (nonatomic, copy) void (^completionBlock)(id sender, id json, NSError *err);
 
 
-- (id)initWithRequest:(NSURLRequest *)request;
+/**
+ Create a connection that is ready to go when you call @p start on it.
+ 
+ @param request
+          The request to initiate upon calling @p start
+ @param sender
+          A convenient capturing on the sender to allow referencing @p self
+          within @p completionBlock
+ */
+- (id)initWithRequest:(NSURLRequest *)request sender:(id)sender;
+
+/// Initiate the request
 - (void)start;
 
 @end

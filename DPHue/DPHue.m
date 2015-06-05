@@ -15,11 +15,10 @@
 #import <CocoaAsyncSocket/GCDAsyncSocket.h>
 
 
-@interface DPHue () <DPJSONSerializable, GCDAsyncSocketDelegate>
+@interface DPHue () <GCDAsyncSocketDelegate>
 
+// JPR TODO: allow setting from the outside
 @property (nonatomic, strong) NSString *deviceType;
-@property (nonatomic, strong) NSURL *readURL;
-@property (nonatomic, strong) NSURL *writeURL;
 @property (nonatomic, strong) GCDAsyncSocket *socket;
 @property (nonatomic, copy) void (^touchLightCompletionBlock)(BOOL success, NSString *result);
 
@@ -36,33 +35,93 @@
         _authenticated = NO;
         _host = host;
         _username = username;
-        [self updateURLs];
     }
   
     return self;
 }
 
-- (void)readWithCompletion:(void (^)(DPHue *, NSError *))block
-{
-    NSURLRequest *req = [NSURLRequest requestWithURL:self.readURL];
-    DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:req];
-    connection.completionBlock = block;
-    connection.jsonRootObject = self;
-    [connection start];
+#pragma mark - NSCoding
+
+- (id)initWithCoder:(NSCoder *)a {
+  self = [super init];
+  if (self) {
+    _deviceType = @"QuickHue";
+    _username = [a decodeObjectForKey:@"username"];
+    _host = [a decodeObjectForKey:@"host"];
+    _lights = [a decodeObjectForKey:@"lights"];
+  }
+  return self;
 }
 
-- (void)registerUsername {
-    NSDictionary *usernameDict = @{@"devicetype": self.deviceType, @"username": self.username};
-    NSString *urlString = [NSString stringWithFormat:@"http://%@/api/", self.host];
-    NSURL *url = [NSURL URLWithString:urlString];
-    NSData *usernameJson = [NSJSONSerialization dataWithJSONObject:usernameDict options:0 error:nil];
-    NSMutableURLRequest *req = [[NSMutableURLRequest alloc] initWithURL:url];
-    req.HTTPMethod = @"POST";
-    req.HTTPBody = usernameJson;
+- (void)encodeWithCoder:(NSCoder *)a {
+  [a encodeObject:_host forKey:@"host"];
+  [a encodeObject:_lights forKey:@"lights"];
+  [a encodeObject:_username forKey:@"username"];
+}
+
+- (void)setUsername:(NSString *)username
+{
+  _username = username;
   
-    [self logPendingRequest:req withData:usernameJson];
-    DPJSONConnection *conn = [[DPJSONConnection alloc] initWithRequest:req];
-    [conn start];
+  // As each DPHueLight maintains its own access URLs, they too must be updated
+  // if URLs change.
+  for (DPHueLight *light in self.lights)
+  {
+    light.username = username;
+  }
+}
+
+- (void)setHost:(NSString *)host
+{
+  _host = host;
+  
+  // As each DPHueLight maintains its own access URLs, they too must be updated
+  // if URLs change.
+  for (DPHueLight *light in self.lights)
+  {
+    light.host = host;
+  }
+}
+
+- (void)readWithCompletion:(void (^)(DPHue *, NSError *))block
+{
+  // Cut down on if-checks within completionBlock
+  void (^innerBlock)(DPHue *, NSError *) = ^(DPHue *hue, NSError *error) {
+    if ( block )
+      block(hue, error);
+  };
+  
+  NSURLRequest *request = [self requestForReadingControllerState];
+  
+  DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:request sender:self];
+  connection.completionBlock = ^(DPHue *sender, id json, NSError *err) {
+    if ( err )
+    {
+      innerBlock( nil, err );
+      return;
+    }
+    
+    [sender parseControllerState:json];
+    innerBlock( sender, nil );
+  };
+  
+  [connection start];
+}
+
+- (void)registerUsername
+{
+  NSURLRequest *request = [self requestForRegisteringUsername:self.username
+                                               withDeviceType:self.deviceType];
+  
+  DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:request sender:self];
+  connection.completionBlock = ^(DPHue *sender, id json, NSError *err) {
+    if ( err )
+      return;
+    
+    [sender parseUsernameRegistration:json];
+  };
+  
+  [connection start];
 }
 
 + (NSString *)generateUsername {
@@ -73,57 +132,13 @@
     NSMutableString *descr = [[NSMutableString alloc] init];
     [descr appendFormat:@"Name: %@\n", self.name];
     [descr appendFormat:@"Version: %@\n", self.swversion];
-    [descr appendFormat:@"readURL: %@\n", self.readURL];
-    [descr appendFormat:@"writeURL: %@\n", self.writeURL];
     [descr appendFormat:@"Number of lights: %lu\n", (unsigned long)self.lights.count];
     for (DPHueLight *light in self.lights) {
         [descr appendString:light.description];
         [descr appendString:@"\n"];
     }
+
     return descr;
-}
-
-- (void)allLightsOff {
-    for (DPHueLight *light in self.lights) {
-        light.on = NO;
-        [light write];
-    }
-}
-
-- (void)allLightsOn {
-    for (DPHueLight *light in self.lights) {
-        light.on = YES;
-        [light write];
-    }
-}
-
-- (void)writeAll {
-    for (DPHueLight *light in self.lights)
-        [light writeAll];
-}
-
-// Sets _readURL and _writeURL based on _hostname, for the
-// controller and all the lights managed by this controller.
-- (void)updateURLs {
-    _readURL = [NSURL URLWithString:[NSString stringWithFormat:@"http://%@/api/%@", self.host, self.username]];
-    _writeURL = [NSURL URLWithString:[NSString stringWithFormat:@"http://%@/api/%@/config", self.host, self.username]];
-    
-    // As each DPHueLight maintains its own access URLs, they
-    // too must be updated if URLs change.
-    for (DPHueLight *light in self.lights) {
-        light.host = self.host;
-        light.username = self.username;
-    }
-}
-
-- (void)setUsername:(NSString *)username {
-    _username = username;
-    [self updateURLs];
-}
-
-- (void)setHost:(NSString *)host {
-    _host = host;
-    [self updateURLs];
 }
 
 - (void)triggerTouchlinkWithCompletion:(void (^)(BOOL success, NSString *))block {
@@ -147,7 +162,8 @@
 
 - (DPHueLight *)lightWithId:(NSNumber *)lightId
 {
-  for ( DPHueLight *light in self.lights ) {
+  for ( DPHueLight *light in self.lights )
+  {
     if ( [light.number isEqualToNumber:lightId] )
       return light;
   }
@@ -157,7 +173,8 @@
 
 - (DPHueLight *)lightWithName:(NSString *)lightName
 {
-  for ( DPHueLight *light in self.lights ) {
+  for ( DPHueLight *light in self.lights )
+  {
     if ( [light.name isEqualToString:lightName] )
       return light;
   }
@@ -196,68 +213,91 @@
     }
 }
 
-#pragma mark - DPJSONSerializable
 
-- (void)readFromJSONDictionary:(id)d {
-    if (![d respondsToSelector:@selector(objectForKeyedSubscript:)]) {
-        // We were given an array, not a dict, which means
-        // Hue is giving us a result array, which (in this case)
-        // means error: not authenticated
-        _authenticated = NO;
-        return;
-    }
-    _name = d[@"config"][@"name"];
-    if (_name)
-        _authenticated = YES;
-    _swversion = d[@"config"][@"swversion"];
-    NSMutableArray *tmpLights = [[NSMutableArray alloc] init];
-    for (NSString *lightItem in d[@"lights"]) {
-        DPHueLight *light = [[DPHueLight alloc] init];
-        [light readFromJSONDictionary:d[@"lights"][lightItem]];
-        NSNumberFormatter *f = [[NSNumberFormatter alloc] init];
-        f.numberStyle = NSNumberFormatterDecimalStyle;
-        light.number = [f numberFromString:lightItem];
-        light.username = self.username;
-        light.host = self.host;
-        [tmpLights addObject:light];
-    }
-    _lights = tmpLights;
-}
+#pragma mark - HueAPIRequestGeneration
 
-#pragma mark - NSCoding
-
-- (id)initWithCoder:(NSCoder *)a {
-    self = [super init];
-    if (self) {
-        _deviceType = @"QuickHue";
-        _username = [a decodeObjectForKey:@"username"];
-        _host = [a decodeObjectForKey:@"host"];
-        _readURL = [a decodeObjectForKey:@"getURL"];
-        _writeURL = [a decodeObjectForKey:@"putURL"];
-        _lights = [a decodeObjectForKey:@"lights"];
-    }
-    return self;
-}
-
-- (void)encodeWithCoder:(NSCoder *)a {
-    [a encodeObject:_readURL forKey:@"getURL"];
-    [a encodeObject:_writeURL forKey:@"putURL"];
-    [a encodeObject:_host forKey:@"host"];
-    [a encodeObject:_lights forKey:@"lights"];
-    [a encodeObject:_username forKey:@"username"];
-}
-
-#pragma mark - Helpers
-
-- (void)logPendingRequest:(NSURLRequest *)request withData:(NSData *)requestData
+- (NSURL *)baseURL
 {
-#ifdef DEBUG
-  NSString *pretty = [[NSString alloc] initWithData:requestData encoding:NSUTF8StringEncoding];
-  NSMutableString *msg = [NSMutableString new];
-  [msg appendFormat:@"Writing to: %@\n", request.URL];
-  [msg appendFormat:@"Writing values: %@\n", pretty];
-  WSLog(@"%@", msg);
-#endif
+  NSAssert([self.host length], @"No host set");
+  NSAssert([self.username length], @"No username set");
+  
+  NSString *basePath = [NSString stringWithFormat:@"http://%@/api/%@",
+                        self.host, self.username];
+  
+  return [NSURL URLWithString:basePath];
+}
+
+- (NSURLRequest *)requestForRegisteringUsername:(NSString *)username withDeviceType:(NSString *)deviceType
+{
+  NSAssert([self.host length], @"No host set");
+  
+  NSString *urlPath = [NSString stringWithFormat:@"http://%@/api", self.host];
+  NSURL *url = [NSURL URLWithString:urlPath];
+  
+  NSDictionary *usernameDict = @{@"devicetype": deviceType, @"username": username};
+  // JPR TODO: pass and check error
+  NSData *usernameJson = [NSJSONSerialization dataWithJSONObject:usernameDict options:0 error:nil];
+  NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:url];
+  request.HTTPMethod = @"POST";
+  request.HTTPBody = usernameJson;
+  
+  return request;
+}
+
+- (NSURLRequest *)requestForReadingControllerState
+{
+  NSURL *url = [self baseURL];
+  
+  NSURLRequest *request = [NSURLRequest requestWithURL:url];
+  return request;
+}
+
+
+#pragma mark - HueAPIJsonParsing
+
+// POST /
+- (instancetype)parseUsernameRegistration:(id)json
+{
+  // JPR TODO: do something here
+  return self;
+}
+
+// GET /
+- (instancetype)parseControllerState:(id)json
+{
+  if ( ![json respondsToSelector:@selector(objectForKeyedSubscript:)] )
+  {
+    // We were given an array, not a dict, which means
+    // Hue is giving us a result array, which (in this case)
+    // means error: not authenticated
+    _authenticated = NO;
+    return self;
+  }
+  
+  _name = json[@"config"][@"name"];
+  if ( _name )
+  {
+    _authenticated = YES;
+  }
+  
+  _swversion = json[@"config"][@"swversion"];
+  
+  NSNumberFormatter *f = [NSNumberFormatter new];
+  f.numberStyle = NSNumberFormatterDecimalStyle;
+  
+  NSMutableArray *tmpLights = [NSMutableArray new];
+  for ( NSString *lightItem in json[@"lights"] )
+  {
+    DPHueLight *light = [DPHueLight new];
+    [light parseLightStateGet:json[@"lights"][lightItem]];
+    light.number = [f numberFromString:lightItem];
+    light.username = self.username;
+    light.host = self.host;
+    [tmpLights addObject:light];
+  }
+  _lights = tmpLights;
+  
+  return self;
 }
 
 @end

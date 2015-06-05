@@ -33,25 +33,39 @@
 - (void)discoverForDuration:(int)seconds withCompletion:(void (^)(NSMutableString *log))block {
   WSLog(@"Starting discovery, via meethue.com API first");
   [self appendToLog:@"Starting disovery"];
-  NSURLRequest *req = [NSURLRequest requestWithURL:[NSURL URLWithString:@"https://www.meethue.com/api/nupnp"]];
-  DPHueNUPNP *pnp = [[DPHueNUPNP alloc] init];
-  DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:req];
-  connection.jsonRootObject = pnp;
-  connection.completionBlock = ^(DPHueNUPNP *pnp, NSError *err) {
-    if (pnp.hueIP) {
-      // web service gave us a IP
-      [self appendToLog:[NSString stringWithFormat:@"Received Hue IP from web service: %@", pnp.hueIP]];
-      self.foundHue = YES;
-      if ([self.delegate respondsToSelector:@selector(foundHueAt:discoveryLog:)]) {
-        [self.delegate foundHueAt:pnp.hueIP discoveryLog:self.log];
-      }
-    } else {
-      [self appendToLog:@"Received response from web service, but no IP, starting SSDP discovery"];
-      [self startSSDPDiscovery];
+  
+  DPHueNUPNP *pnp = [DPHueNUPNP new];
+  NSURLRequest *request = [pnp requestForDiscovery];
+  [self appendToLog:[NSString stringWithFormat:@"Making request to %@", request]];
+  
+  DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:request sender:self];
+  connection.completionBlock = ^(DPHueDiscover *sender, id json, NSError *err) {
+    if ( err )
+    {
+      [sender appendToLog:@"Error hitting web service, starting SSDP discovery"];
+      [sender startSSDPDiscovery];
+      return;
+    }
+    
+    [pnp parseDiscovery:json];
+    if ( !pnp.hueIP )
+    {
+      [sender appendToLog:@"Received response from web service, but no IP, starting SSDP discovery"];
+      [sender startSSDPDiscovery];
+      return;
+    }
+    
+    [sender appendToLog:[NSString stringWithFormat:@"Received Hue IP from web service: %@", pnp.hueIP]];
+    sender.foundHue = YES;
+    
+    if ([sender.delegate respondsToSelector:@selector(foundHueAt:discoveryLog:)])
+    {
+      [sender.delegate foundHueAt:pnp.hueIP discoveryLog:sender.log];
     }
   };
-  [self appendToLog:[NSString stringWithFormat:@"Making request to %@", req]];
+  
   [connection start];
+  
   // `seconds` seconds later, stop discovering
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, seconds * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
     // JPR TODO: swap the order to get full log before triggering callback
@@ -91,25 +105,33 @@
 
 - (void)searchForHueAt:(NSURL *)url {
   NSURLRequest *req = [NSURLRequest requestWithURL:url];
-  DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:req];
   [self appendToLog:[NSString stringWithFormat:@"Searching for Hue controller at %@", url]];
-  connection.completionBlock = ^(NSData *data, NSError *err) {
+  
+  __weak typeof(self)wkSelf = self;
+  [[[NSURLSession sharedSession] dataTaskWithRequest:req completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+    if ( error )
+    {
+      [wkSelf appendToLog:[NSString stringWithFormat:@"Error while searching for Hue Controller %@", error.localizedDescription]];
+      return;
+    }
+    
     NSString *msg = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
     // If this string is found, then url == hue!
+    // JPR TODO: is this string accurate? seems fragile
     if ([msg rangeOfString:@"Philips hue bridge 2012"].location != NSNotFound) {
-      [self appendToLog:[NSString stringWithFormat:@"Found hue at %@!", url.host]];
-      if ([self.delegate respondsToSelector:@selector(foundHueAt:discoveryLog:)]) {
-        if (!self.foundHue) {
-          [self.delegate foundHueAt:url.host discoveryLog:self.log];
-          self.foundHue = YES;
+      [wkSelf appendToLog:[NSString stringWithFormat:@"Found hue at %@!", url.host]];
+      // JPR TODO: clean up
+      if ([wkSelf.delegate respondsToSelector:@selector(foundHueAt:discoveryLog:)]) {
+        if (!wkSelf.foundHue) {
+          [wkSelf.delegate foundHueAt:url.host discoveryLog:wkSelf.log];
+          wkSelf.foundHue = YES;
         }
       }
     } else {
       // Host is not a Hue
-      [self appendToLog:[NSString stringWithFormat:@"Host %@ is not a Hue", url.host]];
+      [wkSelf appendToLog:[NSString stringWithFormat:@"Host %@ is not a Hue", url.host]];
     }
-  };
-  [connection start];
+  }] resume];
 }
 
 #pragma mark - GCDAsyncUdpSocketDelegate

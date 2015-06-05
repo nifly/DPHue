@@ -11,37 +11,37 @@
 #import "DPJSONConnection.h"
 #import "WSLog.h"
 
+
 @interface DPHueLight ()
-@property (nonatomic, readwrite) BOOL reachable;
-@property (nonatomic, strong, readwrite) NSString *swversion;
-@property (nonatomic, strong, readwrite) NSString *type;
-@property (nonatomic, strong, readwrite) NSString *modelid;
-@property (nonatomic, strong, readwrite) NSString *colorMode;
+
 @property (nonatomic, strong) NSMutableDictionary *pendingChanges;
-@property (nonatomic, readwrite) BOOL writeSuccess;
-@property (nonatomic, strong, readwrite) NSMutableString *writeMessage;
-@property (nonatomic, strong, readwrite) NSString *name;
-@property (nonatomic, strong, readwrite) NSURL *readURL;
-@property (nonatomic, strong, readwrite) NSURL *writeURL;
+@property (nonatomic, assign) BOOL writeSuccess;
+@property (nonatomic, strong) NSMutableString *writeMessage;
 
 @end
 
+
 @implementation DPHueLight
 
-- (id)init {
-    self = [super init];
-    if (self) {
-        self.holdUpdates = YES;
-        self.pendingChanges = [[NSMutableDictionary alloc] init];
-    }
-    return self;
+- (id)init
+{
+  if ( self = [super init] )
+  {
+    [self performCommonInit];
+  }
+  
+  return self;
+}
+
+- (void)performCommonInit
+{
+  self.holdUpdates = YES;
+  self.pendingChanges = [NSMutableDictionary new];
 }
 
 - (NSString *)description {
     NSMutableString *descr = [[NSMutableString alloc] init];
     [descr appendFormat:@"Light Name: %@\n", self.name];
-    [descr appendFormat:@"\tgetURL: %@\n", self.readURL];
-    [descr appendFormat:@"\tputURL: %@\n", self.writeURL];
     [descr appendFormat:@"\tNumber: %@\n", self.number];
     [descr appendFormat:@"\tType: %@\n", self.type];
     [descr appendFormat:@"\tVersion: %@\n", self.swversion];
@@ -58,28 +58,52 @@
     return descr;
 }
 
-- (void)updateURLs {
-    NSString *base = [NSString stringWithFormat:@"http://%@/api/%@/lights/%@",
-                      self.host, self.username, self.number];
-    _readURL = [NSURL URLWithString:base];
-    _writeURL = [NSURL URLWithString:[NSString stringWithFormat:@"%@/state", base]];
+
+#pragma mark - NSCoding
+
+- (id)initWithCoder:(NSCoder *)coder
+{
+  if ( self = [super init] )
+  {
+    [self performCommonInit];
+    
+    _name = [coder decodeObjectForKey:@"name"];
+    _modelid = [coder decodeObjectForKey:@"modelid"];
+    _swversion = [coder decodeObjectForKey:@"swversion"];
+    _brightness = [coder decodeObjectForKey:@"brightness"];
+    _colorMode = [coder decodeObjectForKey:@"colorMode"];
+    _hue = [coder decodeObjectForKey:@"hue"];
+    _type = [coder decodeObjectForKey:@"bulbType"];
+    _on = [[coder decodeObjectForKey:@"on"] boolValue];
+    _xy = [coder decodeObjectForKey:@"xy"];
+    _colorTemperature = [coder decodeObjectForKey:@"colorTemperature"];
+    _alert = [coder decodeObjectForKey:@"alert"];
+    _saturation = [coder decodeObjectForKey:@"saturation"];
+    _number = [coder decodeObjectForKey:@"number"];
+    _host = [coder decodeObjectForKey:@"host"];
+    _username = [coder decodeObjectForKey:@"username"];
+  }
+  
+  return self;
 }
 
-#pragma mark - Setters that update readURL and writeURL
-
-- (void)setNumber:(NSNumber *)number {
-    _number = number;
-    [self updateURLs];
-}
-
-- (void)setUsername:(NSString *)username {
-    _username = username;
-    [self updateURLs];
-}
-
-- (void)setHost:(NSString *)host {
-    _host = host;
-    [self updateURLs];
+- (void)encodeWithCoder:(NSCoder *)coder
+{
+  [coder encodeObject:_name forKey:@"name"];
+  [coder encodeObject:_modelid forKey:@"modelid"];
+  [coder encodeObject:_swversion forKey:@"swversion"];
+  [coder encodeObject:_brightness forKey:@"brightness"];
+  [coder encodeObject:_colorMode forKey:@"colorMode"];
+  [coder encodeObject:_hue forKey:@"hue"];
+  [coder encodeObject:_type forKey:@"bulbType"];
+  [coder encodeObject:[NSNumber numberWithBool:self->_on] forKey:@"on"];
+  [coder encodeObject:_xy forKey:@"xy"];
+  [coder encodeObject:_colorTemperature forKey:@"colorTemperature"];
+  [coder encodeObject:_alert forKey:@"alert"];
+  [coder encodeObject:_saturation forKey:@"saturation"];
+  [coder encodeObject:_number forKey:@"number"];
+  [coder encodeObject:_host forKey:@"host"];
+  [coder encodeObject:_username forKey:@"username"];
 }
 
 
@@ -136,11 +160,21 @@
         [self write];
 }
 
-- (void)read {
-    NSURLRequest *req = [NSURLRequest requestWithURL:self.readURL];
-    DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:req];
-    connection.jsonRootObject = self;
-    [connection start];
+
+#pragma mark - Public API
+
+- (void)read
+{
+  NSURLRequest *request = [self requestForGettingLightState];
+  DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:request sender:self];
+  connection.completionBlock = ^(DPHueLight *sender, id json, NSError *err) {
+    if ( err )
+      return;
+    
+    [sender parseLightStateGet:json];
+  };
+  
+  [connection start];
 }
 
 - (void)writeAll {
@@ -169,121 +203,126 @@
     [self write];
 }
 
-- (void)write {
-    if (self.pendingChanges.count == 0)
-        return;
-    if (self.transitionTime) {
-        self.pendingChanges[@"transitiontime"] = self.transitionTime;
-    }
-    NSData *json = [NSJSONSerialization dataWithJSONObject:self.pendingChanges options:0 error:nil];
-    NSString *pretty = [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding];
-    NSMutableURLRequest *request = [[NSMutableURLRequest alloc] init];
-    request.URL = self.writeURL;
-    request.HTTPMethod = @"PUT";
-    request.HTTPBody = json;
-    DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:request];
-    connection.jsonRootObject = self;
-    NSMutableString *msg = [[NSMutableString alloc] init];
-    [msg appendFormat:@"Writing to: %@\n", self.writeURL];
-    [msg appendFormat:@"Writing values: %@\n", pretty];
-    connection.completionBlock = ^(id obj, NSError *err) {
-#ifdef DEBUG
-        WSLog(@"writeSuccess: %@:\n%@", self.writeSuccess ? @"True" : @"False", msg);
-#endif
-    };
-    [connection start];
+- (void)write
+{
+  if (!self.pendingChanges.count)
+    return;
+  
+  // This needs to be set each time you send an update, or else it uses a default
+  // value of 4 (400ms):
+  // http://www.developers.meethue.com/watch-transition-time
+  if (self.transitionTime)
+  {
+    self.pendingChanges[@"transitiontime"] = self.transitionTime;
+  }
+  
+  NSURLRequest *request = [self requestForSettingLightState:self.pendingChanges];
+
+  DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:request sender:self];
+  connection.completionBlock = ^(DPHueLight *sender, id json, NSError *err) {
+    if ( err )
+      return;
+    
+    [sender parseLightStateSet:json];
+  };
+  
+  [connection start];
 }
 
-#pragma mark - DSJSONSerializable
 
-- (void)readFromJSONDictionary:(id)d {
-    if (![d respondsToSelector:@selector(objectForKeyedSubscript:)]) {
-        // We were given an array, not a dict, which means
-        // the Hue is telling us the result of a PUT
-        // Loop through all results, if any are not successful, error out
-        BOOL errorFound = NO;
-        _writeMessage = [[NSMutableString alloc] init];
-        for (NSDictionary *result in d) {
-            if (result[@"error"]) {
-                errorFound = YES;
-                [_writeMessage appendFormat:@"%@\n", result[@"error"]];
-            }
-            if (result[@"success"]) {
-                //[_writeMessage appendFormat:@"%@\n", result[@"success"]];
-            }
-        }
-        if (errorFound) {
-            _writeSuccess = NO;
-            NSLog(@"Error writing values!\n%@", _writeMessage);
-        }
-        else {
-            _writeSuccess = YES;
-            [_pendingChanges removeAllObjects];
-        }
-        return;
-    }
-    _name = d[@"name"];
-    _modelid = d[@"modelid"];
-    _swversion = d[@"swversion"];
-    _type = d[@"type"];
-    _brightness = d[@"state"][@"bri"];
-    _colorMode = d[@"state"][@"colormode"];
-    _hue = d[@"state"][@"hue"];
-    _on = [d[@"state"][@"on"] boolValue];
-    _reachable = [d[@"state"][@"reachable"] boolValue];
-    _xy = d[@"state"][@"xy"];
-    _colorTemperature = d[@"state"][@"ct"];
-    _alert = d[@"state"][@"alert"];
-    _saturation = d[@"state"][@"sat"];
+#pragma mark - HueAPIJsonParsingHueAPIRequestGeneration
+
+- (NSURL *)baseURL
+{
+  NSAssert([self.host length], @"No host set");
+  NSAssert([self.username length], @"No username set");
+  NSAssert(self.number != nil, @"No light number set");
+  
+  NSString *basePath = [NSString stringWithFormat:@"http://%@/api/%@/lights/%@",
+                        self.host, self.username, self.number];
+  return [NSURL URLWithString:basePath];
 }
 
-#pragma mark - NSCoding 
-
-- (id)initWithCoder:(NSCoder *)a {
-    self = [super init];
-    if (self) {
-        self.holdUpdates = YES;
-        self.pendingChanges = [[NSMutableDictionary alloc] init];
-        
-        _name = [a decodeObjectForKey:@"name"];
-        _modelid = [a decodeObjectForKey:@"modelid"];
-        _swversion = [a decodeObjectForKey:@"swversion"];
-        _brightness = [a decodeObjectForKey:@"brightness"];
-        _colorMode = [a decodeObjectForKey:@"colorMode"];
-        _hue = [a decodeObjectForKey:@"hue"];
-        _type = [a decodeObjectForKey:@"bulbType"];
-        _on = [[a decodeObjectForKey:@"on"] boolValue];
-        _xy = [a decodeObjectForKey:@"xy"];
-        _colorTemperature = [a decodeObjectForKey:@"colorTemperature"];
-        _alert = [a decodeObjectForKey:@"alert"];
-        _saturation = [a decodeObjectForKey:@"saturation"];
-        _readURL = [a decodeObjectForKey:@"getURL"];
-        _writeURL = [a decodeObjectForKey:@"putURL"];
-        _number = [a decodeObjectForKey:@"number"];
-        _host = [a decodeObjectForKey:@"host"];
-        _username = [a decodeObjectForKey:@"username"];
-    }
-    return self;
+- (NSURLRequest *)requestForGettingLightState
+{
+  NSURL *url = [self baseURL];
+  
+  NSURLRequest *request = [NSURLRequest requestWithURL:url];
+  return request;
 }
 
-- (void)encodeWithCoder:(NSCoder *)a {
-    [a encodeObject:_name forKey:@"name"];
-    [a encodeObject:_modelid forKey:@"modelid"];
-    [a encodeObject:_swversion forKey:@"swversion"];
-    [a encodeObject:_brightness forKey:@"brightness"];
-    [a encodeObject:_colorMode forKey:@"colorMode"];
-    [a encodeObject:_hue forKey:@"hue"];
-    [a encodeObject:_type forKey:@"bulbType"];
-    [a encodeObject:[NSNumber numberWithBool:self->_on] forKey:@"on"];
-    [a encodeObject:_xy forKey:@"xy"];
-    [a encodeObject:_colorTemperature forKey:@"colorTemperature"];
-    [a encodeObject:_alert forKey:@"alert"];
-    [a encodeObject:_saturation forKey:@"saturation"];
-    [a encodeObject:_readURL forKey:@"getURL"];
-    [a encodeObject:_writeURL forKey:@"putURL"];
-    [a encodeObject:_number forKey:@"number"];
-    [a encodeObject:_host forKey:@"host"];
-    [a encodeObject:_username forKey:@"username"];
+- (NSURLRequest *)requestForSettingLightState:(NSDictionary *)state
+{
+  NSURL *url = [[self baseURL] URLByAppendingPathComponent:@"state"];
+  
+  // JPR TODO: pass and check error
+  NSData *json = [NSJSONSerialization dataWithJSONObject:state options:0 error:nil];
+  NSMutableURLRequest *request = [NSMutableURLRequest new];
+  request.URL = url;
+  request.HTTPMethod = @"PUT";
+  request.HTTPBody = json;
+  return [request copy];
+}
+
+
+#pragma mark - HueAPIJsonParsing
+
+// GET /lights/{id}
+- (instancetype)parseLightStateGet:(id)json
+{
+  // Set these via ivars to avoid the 'pendingUpdates' logic in the setters
+  _name = json[@"name"];
+  _modelid = json[@"modelid"];
+  _swversion = json[@"swversion"];
+  _type = json[@"type"];
+  _brightness = json[@"state"][@"bri"];
+  _colorMode = json[@"state"][@"colormode"];
+  _hue = json[@"state"][@"hue"];
+  _on = [json[@"state"][@"on"] boolValue];
+  _reachable = [json[@"state"][@"reachable"] boolValue];
+  _xy = json[@"state"][@"xy"];
+  _colorTemperature = json[@"state"][@"ct"];
+  _alert = json[@"state"][@"alert"];
+  _saturation = json[@"state"][@"sat"];
+  
+  return self;
+}
+
+// PUT /lights/{id}/state
+- (instancetype)parseLightStateSet:(id)json
+{
+  // Loop through all results, if any are not successful, report the whole
+  // process as a failure
+  BOOL errorFound = NO;
+  _writeMessage = [NSMutableString new];
+  
+  for ( NSDictionary *result in json )
+  {
+    if (result[@"error"])
+    {
+      errorFound = YES;
+      [_writeMessage appendFormat:@"%@\n", result[@"error"]];
+    }
+    
+    if (result[@"success"])
+    {
+      [_writeMessage appendFormat:@"%@\n", result[@"success"]];
+    }
+  }
+  
+  if (errorFound)
+  {
+    _writeSuccess = NO;
+    NSLog(@"Error writing values!\n%@", _writeMessage);
+  }
+  else
+  {
+    _writeSuccess = YES;
+    // JPR TODO: should this be done unconditionally?
+    [_pendingChanges removeAllObjects];
+  }
+  
+  return self;
 }
 
 @end

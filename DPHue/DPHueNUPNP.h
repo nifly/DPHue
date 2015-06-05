@@ -11,10 +11,26 @@
 // meethue.com discovery API.
 
 #import <Foundation/Foundation.h>
-#import "DPJSONConnection.h"
 
-@interface DPHueNUPNP : NSObject <DPJSONSerializable>
-@property (nonatomic, strong, readonly) NSString *hueID;
-@property (nonatomic, strong, readonly) NSString *hueIP;
-@property (nonatomic, strong, readonly) NSString *hueMACAddress;
+
+@interface DPHueNUPNP : NSObject
+
+@property (nonatomic, copy, readonly) NSString *hueID;
+@property (nonatomic, copy, readonly) NSString *hueIP;
+@property (nonatomic, copy, readonly) NSString *hueMACAddress;
+
+@end
+
+
+@interface DPHueNUPNP (HueAPIRequestGeneration)
+
+- (NSURLRequest *)requestForDiscovery;
+
+@end
+
+
+@interface DPHueNUPNP (HueAPIJsonParsing)
+
+- (NSURLRequest *)parseDiscovery:(id)json;
+
 @end

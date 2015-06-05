@@ -7,8 +7,9 @@
 //
 //  https://github.com/danparsons/DPHue
 
-
 #import "DPJSONConnection.h"
+#import "WSLog.h"
+
 
 static NSMutableArray *sharedConnectionList = nil;
 
@@ -22,11 +23,12 @@ static NSMutableArray *sharedConnectionList = nil;
 
 @implementation DPJSONConnection
 
-- (id)initWithRequest:(NSURLRequest *)request
+- (id)initWithRequest:(NSURLRequest *)request sender:(id)sender;
 {
   if (self = [super init])
   {
     _request = request;
+    _sender = sender;
   }
   
   return self;
@@ -38,16 +40,17 @@ static NSMutableArray *sharedConnectionList = nil;
     sharedConnectionList = [NSMutableArray new];
   [sharedConnectionList addObject:self];
   
+  // Avoid if-checks within the `internalTask` completion block
   __weak typeof(self)wkSelf = self;
-  void (^innerCompletionBlock)(id, NSError *) = ^(id obj, NSError *err) {
-    if ( wkSelf.completionBlock )
+  void (^innerCompletionBlock)(id, NSError *) = ^(id json, NSError *err) {
+    __strong typeof(wkSelf)strongSelf = wkSelf;
+    if ( strongSelf.completionBlock )
     {
-      __strong typeof(wkSelf)strongSelf = wkSelf;
       dispatch_async(dispatch_get_main_queue(), ^{
-        strongSelf.completionBlock( obj, err );
+        strongSelf.completionBlock( strongSelf.sender, json, err );
       });
     }
-    [sharedConnectionList removeObject:wkSelf];
+    [sharedConnectionList removeObject:strongSelf];
   };
   
   NSURLSession *session = [NSURLSession sharedSession];
@@ -58,12 +61,6 @@ static NSMutableArray *sharedConnectionList = nil;
       return;
     }
     
-    if (!wkSelf.jsonRootObject)
-    {
-      innerCompletionBlock( data, nil );
-      return;
-    }
-    
     NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:&error];
     if ( error )
     {
@@ -71,11 +68,25 @@ static NSMutableArray *sharedConnectionList = nil;
       return;
     }
     
-    [wkSelf.jsonRootObject readFromJSONDictionary:json];
-    innerCompletionBlock( wkSelf.jsonRootObject, nil );
+    innerCompletionBlock( json, nil );
   }];
   
+  [[self class] logPendingRequest:self.request];
   [self.internalTask resume];
+}
+
+
+#pragma mark - Helpers
+
++ (void)logPendingRequest:(NSURLRequest *)request
+{
+#if REQUEST_LOGGING_ENABLED
+  NSString *pretty = [[NSString alloc] initWithData:request.HTTPBody encoding:NSUTF8StringEncoding];
+  NSMutableString *msg = [NSMutableString new];
+  [msg appendFormat:@"Writing to: %@\n", request.URL];
+  [msg appendFormat:@"Writing values: %@\n", pretty];
+  WSLog(@"%@", msg);
+#endif
 }
 
 @end
