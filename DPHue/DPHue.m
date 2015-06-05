@@ -9,6 +9,7 @@
 
 #import "DPHue.h"
 #import "DPHueLight.h"
+#import "DPHueLightGroup.h"
 #import "DPJSONConnection.h"
 #import "NSString+MD5.h"
 #import "WSLog.h"
@@ -49,6 +50,7 @@
     _username = [a decodeObjectForKey:@"username"];
     _host = [a decodeObjectForKey:@"host"];
     _lights = [a decodeObjectForKey:@"lights"];
+    _groups = [a decodeObjectForKey:@"groups"];
   }
   return self;
 }
@@ -56,6 +58,7 @@
 - (void)encodeWithCoder:(NSCoder *)a {
   [a encodeObject:_host forKey:@"host"];
   [a encodeObject:_lights forKey:@"lights"];
+  [a encodeObject:_groups forKey:@"groups"];
   [a encodeObject:_username forKey:@"username"];
 }
 
@@ -63,11 +66,16 @@
 {
   _username = username;
   
-  // As each DPHueLight maintains its own access URLs, they too must be updated
-  // if URLs change.
+  // As each DPHueLight and DPHueLightGroup maintains its own access URLs, they
+  // too must be updated if URLs change.
   for (DPHueLight *light in self.lights)
   {
     light.username = username;
+  }
+  
+  for (DPHueLightGroup *group in self.groups)
+  {
+    group.username = username;
   }
 }
 
@@ -75,11 +83,16 @@
 {
   _host = host;
   
-  // As each DPHueLight maintains its own access URLs, they too must be updated
-  // if URLs change.
+  // As each DPHueLight and DPHueLightGroup maintains its own access URLs, they
+  // too must be updated if URLs change.
   for (DPHueLight *light in self.lights)
   {
     light.host = host;
+  }
+  
+  for (DPHueLightGroup *group in self.groups)
+  {
+    group.host = host;
   }
 }
 
@@ -137,7 +150,10 @@
         [descr appendString:light.description];
         [descr appendString:@"\n"];
     }
-
+    for (DPHueLightGroup *group in self.groups) {
+        [descr appendString:group.description];
+        [descr appendString:@"\n"];
+    }
     return descr;
 }
 
@@ -180,6 +196,55 @@
   }
   
   return nil;
+}
+
+- (DPHueLightGroup *)groupWithId:(NSNumber *)groupId
+{
+  for ( DPHueLightGroup *group in self.groups )
+  {
+    if ( [group.number isEqualToNumber:groupId] )
+      return group;
+  }
+  
+  return nil;
+}
+
+- (DPHueLightGroup *)groupWithName:(NSString *)groupName
+{
+  for ( DPHueLightGroup *group in self.groups )
+  {
+    if ( [group.name isEqualToString:groupName] )
+      return group;
+  }
+  
+  return nil;
+}
+
+- (void)createGroupWithName:(NSString *)name lightIds:(NSArray *)lightIds onCompletion:(void (^)(BOOL success, DPHueLightGroup *group))onCompletionBlock
+{
+  // JPR TODO: handle lights being off during creation
+  // JPR TODO: update group if name already exists
+  
+  DPHueLightGroup *group = [DPHueLightGroup new];
+  group.username = self.username;
+  group.host = self.host;
+  NSURLRequest *request = [group requestForCreatingWithName:name lightIds:lightIds];
+  DPJSONConnection *conn = [[DPJSONConnection alloc] initWithRequest:request sender:self];
+  if ( onCompletionBlock )
+  {
+    conn.completionBlock = ^(DPHue *sender, id json, NSError *err) {
+      if ( err )
+      {
+        onCompletionBlock( NO, nil );
+        return;
+      }
+      
+      [group parseGroupCreation:json];
+      onCompletionBlock( YES, group);
+    };
+  }
+  
+  [conn start];
 }
 
 #pragma mark - GCDAsyncSocketDelegate
@@ -296,6 +361,18 @@
     [tmpLights addObject:light];
   }
   _lights = tmpLights;
+  
+  NSMutableArray *tmpGroups = [NSMutableArray new];
+  for ( NSString *groupItem in json[@"groups"] )
+  {
+    DPHueLightGroup *group = [DPHueLightGroup new];
+    [group parseGroupStateGet:json[@"groups"][groupItem]];
+    group.number = [f numberFromString:groupItem];
+    group.username = self.username;
+    group.host = self.host;
+    [tmpGroups addObject:group];
+  }
+  _groups = tmpGroups;
   
   return self;
 }

@@ -10,6 +10,7 @@
 #import <Foundation/Foundation.h>
 
 @class DPHueLight;
+@class DPHueLightGroup;
 
 
 @interface DPHue : NSObject <NSCoding>
@@ -46,6 +47,11 @@
  */
 @property (nonatomic, readonly, copy) NSArray *lights;
 
+/**
+ An array of DPHueLightGroup objects representing all the groups
+ that the controller is aware of.
+ */
+@property (nonatomic, readonly, copy) NSArray *groups;
 
 /// Whether or not we have been fully registered with the controller.
 @property (nonatomic, readonly, assign) BOOL authenticated;
@@ -115,6 +121,23 @@
  @return The found light, or nil
  */
 - (DPHueLight *)lightWithName:(NSString *)lightName;
+
+/**
+ Search for the group with given @p groupId in @p self.groups
+ 
+ @return The found group, or nil
+ */
+- (DPHueLightGroup *)groupWithId:(NSNumber *)groupId;
+
+/**
+ Search for the group with given @p groupName in @p self.groups
+ 
+ @return The found group, or nil
+ */
+- (DPHueLightGroup *)groupWithName:(NSString *)groupName;
+
+// lightIds = @[ NSNumber ]
+- (void)createGroupWithName:(NSString *)name lightIds:(NSArray *)lightIds onCompletion:(void (^)(BOOL success, DPHueLightGroup *group))onCompletionBlock;
 
 @end
 
