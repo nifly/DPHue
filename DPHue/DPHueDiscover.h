@@ -25,6 +25,7 @@
 
 @property (nonatomic, weak) id<DPHueDiscoverDelegate> delegate;
 
+- (instancetype)init NS_UNAVAILABLE;
 - (id)initWithDelegate:(id<DPHueDiscoverDelegate>)delegate NS_DESIGNATED_INITIALIZER;
 
 // Start discovery process, stopping after specified seconds, calling block when done.
