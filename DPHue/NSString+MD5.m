@@ -8,8 +8,8 @@
 //  https://github.com/danparsons/DPHue
 
 
-#import <CommonCrypto/CommonDigest.h>
 #import "NSString+MD5.h"
+#import <CommonCrypto/CommonDigest.h>
 
 @implementation NSString (MD5)
 - (NSString *)MD5String {

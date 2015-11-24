@@ -7,58 +7,86 @@
 //
 //  https://github.com/danparsons/DPHue
 
-
 #import "DPJSONConnection.h"
+#import "WSLog.h"
+
 
 static NSMutableArray *sharedConnectionList = nil;
 
-@interface DPJSONConnection ()
-@property (nonatomic, strong) NSURLConnection *internalConnection;
-@property (nonatomic, strong) NSMutableData *container;
+
+@interface DPJSONConnection () <NSURLConnectionDataDelegate, NSURLConnectionDelegate>
+
+@property (nonatomic, strong) NSURLSessionDataTask *internalTask;
+
 @end
+
 
 @implementation DPJSONConnection
 
-- (id)initWithRequest:(NSURLRequest *)request {
-    self = [super init];
-    if (self)
-        self.request = request;
-    return self;
+- (id)initWithRequest:(NSURLRequest *)request sender:(id)sender;
+{
+  if (self = [super init])
+  {
+    _request = request;
+    _sender = sender;
+  }
+  
+  return self;
 }
 
-- (void)start {
-    self.container = [[NSMutableData alloc] init];
-    self.internalConnection = [[NSURLConnection alloc] initWithRequest:self.request delegate:self startImmediately:YES];
-    if (!sharedConnectionList)
-        sharedConnectionList = [[NSMutableArray alloc] init];
-    [sharedConnectionList addObject:self];
-}
-
-#pragma mark - NSURLConnectionDataDelegate
-
-- (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data {
-    [self.container appendData:data];
-}
-
-- (void)connectionDidFinishLoading:(NSURLConnection *)connection {
-    if (self.jsonRootObject) {
-        NSDictionary *d = [NSJSONSerialization JSONObjectWithData:self.container options:0 error:nil];
-        [self.jsonRootObject readFromJSONDictionary:d];
-        if (self.completionBlock)
-            self.completionBlock(self.jsonRootObject, nil);
-    } else { // Didn't specify jsonRootObject, so going to return raw data
-        if (self.completionBlock)
-            self.completionBlock(self.container, nil);
+- (void)start
+{
+  if (!sharedConnectionList)
+    sharedConnectionList = [NSMutableArray new];
+  [sharedConnectionList addObject:self];
+  
+  // Avoid if-checks within the `internalTask` completion block
+  __weak typeof(self)wkSelf = self;
+  void (^innerCompletionBlock)(id, NSError *) = ^(id json, NSError *err) {
+    __strong typeof(wkSelf)strongSelf = wkSelf;
+    if ( strongSelf.completionBlock )
+    {
+      dispatch_async(dispatch_get_main_queue(), ^{
+        strongSelf.completionBlock( strongSelf.sender, json, err );
+      });
     }
-    [sharedConnectionList removeObject:self];
+    [sharedConnectionList removeObject:strongSelf];
+  };
+  
+  NSURLSession *session = [NSURLSession sharedSession];
+  self.internalTask = [session dataTaskWithRequest:self.request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+    if ( error )
+    {
+      innerCompletionBlock( nil, error );
+      return;
+    }
+    
+    NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:&error];
+    if ( error )
+    {
+      innerCompletionBlock( nil, error );
+      return;
+    }
+    
+    innerCompletionBlock( json, nil );
+  }];
+  
+  [[self class] logPendingRequest:self.request];
+  [self.internalTask resume];
 }
 
-#pragma mark - NSURLConnectionDelegate
 
-- (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error {
-    if (self.completionBlock)
-        self.completionBlock(nil, error);
-    [sharedConnectionList removeObject:self];
+#pragma mark - Helpers
+
++ (void)logPendingRequest:(NSURLRequest *)request
+{
+#if REQUEST_LOGGING_ENABLED
+  NSString *pretty = [[NSString alloc] initWithData:request.HTTPBody encoding:NSUTF8StringEncoding];
+  NSMutableString *msg = [NSMutableString new];
+  [msg appendFormat:@"Writing to: %@\n", request.URL];
+  [msg appendFormat:@"Writing values: %@\n", pretty];
+  WSLog(@"%@", msg);
+#endif
 }
 
 @end

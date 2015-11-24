@@ -9,19 +9,39 @@
 
 #import "DPHueNUPNP.h"
 
+
 @implementation DPHueNUPNP
 
-- (void)readFromJSONDictionary:(id)d {
-    if ([d count] > 0) {
-        NSDictionary *dict = [d objectAtIndex:0];
-        _hueID = dict[@"id"];
-        _hueIP = dict[@"internalipaddress"];
-        _hueMACAddress = dict[@"macaddress"];
-    }
+
+- (NSString *)description
+{
+  return [NSString stringWithFormat:@"ID: %@\nIP: %@\nMAC: %@\n",
+          self.hueID, self.hueIP, self.hueMACAddress];
 }
 
-- (NSString *)description {
-    return [NSString stringWithFormat:@"ID: %@\nIP: %@\nMAC: %@\n", self.hueID, self.hueIP, self.hueMACAddress];
+
+#pragma mark - HueAPIRequestGeneration
+
+- (NSURLRequest *)requestForDiscovery
+{
+  NSURL *url = [NSURL URLWithString:@"https://www.meethue.com/api/nupnp"];
+  return [NSURLRequest requestWithURL:url];
+}
+
+
+#pragma mark - HueAPIJsonParsing
+
+- (instancetype)parseDiscovery:(id)json
+{
+  if ( [json respondsToSelector:@selector(objectAtIndex:)] && [json count] > 0 )
+  {
+    NSDictionary *configuration = json[0];
+    _hueID = configuration[@"id"];
+    _hueIP = configuration[@"internalipaddress"];
+    _hueMACAddress = configuration[@"macaddress"];
+  }
+  
+  return self;
 }
 
 @end

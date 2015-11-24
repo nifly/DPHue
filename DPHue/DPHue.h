@@ -8,95 +8,192 @@
 //  https://github.com/danparsons/DPHue
 
 #import <Foundation/Foundation.h>
-#import <CocoaAsyncSocket/GCDAsyncSocket.h>
-#import "DPJSONSerializable.h"
 
-@interface DPHue : NSObject <DPJSONSerializable, NSCoding, GCDAsyncSocketDelegate>
-
-// Properties you may be interested in setting
-
-// The API username DPHue will use when communicating with the Hue controller.
-// The Hue API requires this be an MD5 hash of something.
-@property (nonatomic, strong) NSString *username;
-
-// The hostname (or IP address) that DPHue will talk to.
-@property (nonatomic, strong) NSString *host;
+@class DPHueLight;
+@class DPHueLightGroup;
 
 
-
-// Properties you may be interested in reading
-
-// The "name" of the Hue controller, as returned by the API
-// This can actually be changed via the Hue API if necessary,
-// but I didn't implement that feature.
-@property (nonatomic, strong, readonly) NSString *name;
-
-// Firmware version
-@property (nonatomic, strong, readonly) NSString *swversion;
-
-// An array of DPHueLight objects representing all the lights
-// that the controller is aware of.
-@property (nonatomic, strong, readonly) NSArray *lights;
-
-// Accessing this proprety causes DPHue to try to authenticate
-@property (nonatomic, readonly) BOOL authenticated;
+@interface DPHue : NSObject <NSCoding>
 
 
+#pragma mark - Properties you may be interested in setting
 
-// Properties you can probably ignore
+/**
+ The API username DPHue will use when communicating with the Hue controller.
+ The Hue API requires this be an MD5 hash of something.
+ */
+@property (nonatomic, copy) NSString *generatedUsername;
 
-// Both getURL and putURL are automatically generated based on
-// data returned from the controller.
-// readURL is the URL that returns data (controller config, lights)
-@property (nonatomic, strong, readonly) NSURL *readURL;
-
-// writeURL is the URL that new JSON values are sent to
-@property (nonatomic, strong, readonly) NSURL *writeURL;
+/// The hostname (or IP address) that DPHue will talk to.
+@property (nonatomic, copy) NSString *host;
 
 
-// Utility method for generating a username that Hue will like
-// It requires usernames to be MD5 hashes
-// This method returns a md5 hash of the system's hostname
-+ (NSString *)generateUsername;
+#pragma mark - Properties you may be interested in reading
 
-// host is the hostname or IP of the Hue controller you want to talk to.
-// username has to be an md5 string - use [DPHue generateUsername] to
-// create one if you don't have one already. In that case, you'll also
-// have to register the username with the controller. See
-// [DPHue registerUsername].
-- (id)initWithHueHost:(NSString *)host username:(NSString *)username;
+/**
+ The "name" of the Hue controller, as returned by the API.
+ 
+ This can actually be changed via the Hue API if necessary,
+ but I didn't implement that feature.
+ */
+@property (nonatomic, readonly, copy) NSString *name;
 
-// Download the complete state of the Hue controller, including the state
-// of all lights. block is called when the operation is complete. This
-// normally takes only 1 to 3 seconds.
+/// Firmware version
+@property (nonatomic, readonly, copy) NSString *swversion;
+
+/**
+ An array of DPHueLight objects representing all the lights
+ that the controller is aware of.
+ */
+@property (nonatomic, readonly, copy) NSArray *lights;
+
+/**
+ An array of DPHueLightGroup objects representing all the groups
+ that the controller is aware of.
+ */
+@property (nonatomic, readonly, copy) NSArray *groups;
+
+/// Whether or not we have been fully registered with the controller.
+@property (nonatomic, readonly, assign) BOOL authenticated;
+
+
+#pragma mark - Methods
+
+/**
+ * Generate a DPHue object with the given parameters.
+ *
+ * @param host
+ *          The hostname or IP of the Hue controller you want to talk to.
+ * @param generatedUsername
+ *          An md5 string from a previously successful call to @p [DPHue registerDevice].
+ *          If this is your first time interacting with the controller, use @p nil.
+ */
+- (id)initWithHueHost:(NSString *)host generatedUsername:(NSString *)generatedUsername;
+
+/**
+ Download the complete state of the Hue controller, including the state
+ of all lights and groups. @p block is called when the operation is complete.
+ This normally takes only 1 to 3 seconds.
+ */
 - (void)readWithCompletion:(void (^)(DPHue *hue, NSError *err))block;
 
-// This will attempt to register self.username with the Hue controller.
-// This will fail unless the physical button on the Hue controller has
-// been pressed within the last 30 seconds. The workflow for this method
-// is a loop: tell the user to press the button on their controller, call
-// this method, then check self.authenticated. If NO, keep calling this
-// method. See DPQuickHue for implementation example.
-- (void)registerUsername;
+/**
+ * This will attempt to register @p self.deviceType with the Hue controller.
+ * This will fail unless the physical button on the Hue controller has
+ * been pressed within the last 30 seconds. The workflow for this method
+ * is a loop: tell the user to press the button on their controller, call
+ * this method, then check self.authenticated. If NO, keep calling this
+ * method. See @p DPQuickHue for implementation example.
+ * 
+ * Once authenticated, you should be sure to save off the value of @p DPHue.generatedUsername
+ * so you can reconnect to the controller later without re-registering.
+ */
+- (void)registerDevice;
 
-// Turns off all lights the controller is aware of
-// via [DPHueLight setOn:OFF]
-- (void)allLightsOff;
-
-// Turns on all lights the controller is aware of
-// via [DPHueLight setOn:ON]
-- (void)allLightsOn;
-
-// Writes the state of all lights to the controller, even if no changes
-// have been made. Helpful for changing from one complete state to another.
-- (void)writeAll;
-
-// Triggers the Touchlink feature in a Hue controller, which causes it to
-// pair with all lamps it can find, even thoughs that belong to another
-// controller. To limit the possibility of "stealing" someone else's lamps,
-// the range of this function is limited (by Philips, in the controller firmware)
-// to a short distance from the controller.
-// Calls block when a response is received from the controller.
+/**
+ Triggers the Touchlink feature in a Hue controller, which causes it to
+ pair with all lamps it can find, even thoughs that belong to another
+ controller. To limit the possibility of "stealing" someone else's lamps,
+ the range of this function is limited (by Philips, in the controller firmware)
+ to a short distance from the controller.
+ 
+ Calls block when a response is received from the controller.
+ */
 - (void)triggerTouchlinkWithCompletion:(void (^)(BOOL success, NSString *result))block;
+
+/**
+ Search for the light with given @p lightId in @p self.lights
+ 
+ @return The found light, or nil
+ */
+- (DPHueLight *)lightWithId:(NSNumber *)lightId;
+
+/**
+ Search for the light with given @p lightName in @p self.lights
+ 
+ @return The found light, or nil
+ */
+- (DPHueLight *)lightWithName:(NSString *)lightName;
+
+/**
+ Search for the group with given @p groupId in @p self.groups
+ 
+ @return The found group, or nil
+ */
+- (DPHueLightGroup *)groupWithId:(NSNumber *)groupId;
+
+/**
+ Search for the group with given @p groupName in @p self.groups
+ 
+ @return The found group, or nil
+ */
+- (DPHueLightGroup *)groupWithName:(NSString *)groupName;
+
+// JPR TODO: create a `createOrUpdateGroupWithName` method
+
+/**
+ Create a group on the controller.
+ @param name
+          The group name you want. If this is already taken, then the controller
+          will automatically append an auto-incrementing number to this. So,
+          'Jimmy 1' instead of 'Jimmy'.
+ @param lightIds
+          The @p NSNumber light ids of the lights which you want to belong to
+          this group.
+ @param onCompletionBlock
+          Optional callback to be triggered after the creation process completes.<br />
+          <br />
+          The completion block takes two parameters:
+          <ul>
+          <li>success<br />
+                Indicates whether the creation succeeded according to the controller
+          </li>
+          <li>group<br />
+                The resultant group.
+          </li>
+          </ul>
+ */
+- (void)createGroupWithName:(NSString *)name lightIds:(NSArray *)lightIds onCompletion:(void (^)(BOOL success, DPHueLightGroup* group))onCompletionBlock;
+
+/**
+ Update the given group on the controller.
+ @param name
+          The group name you want to update to. If this is nil, the existing name
+          is used.
+ @param lightIds
+          The @p NSNumber light ids of the lights which you want to belong to
+          this group.
+ @param onCompletionBlock
+          Optional callback to be triggered after the creation process completes.<br />
+          <br />
+          The completion block takes two parameters:
+          <ul>
+          <li>success<br />
+                Indicates whether the update succeeded according to the controller
+          </li>
+          <li>group<br />
+                The resultant group.
+          </li>
+          </ul>
+ */
+- (void)updateGroup:(DPHueLightGroup *)group withName:(NSString *)name lightIds:(NSArray *)lightIds onCompletion:(void (^)(BOOL success, DPHueLightGroup* group))onCompletionBlock;
+
+@end
+
+
+@interface DPHue (HueAPIRequestGeneration)
+
+- (NSURLRequest *)requestForRegisteringDevice:(NSString *)deviceType;
+- (NSURLRequest *)requestForReadingControllerState;
+
+@end
+
+
+@interface DPHue (HueAPIJsonParsing)
+
+// POST /
+- (instancetype)parseDeviceRegistration:(id)json;
+// GET /{username}
+- (instancetype)parseControllerState:(id)json;
 
 @end

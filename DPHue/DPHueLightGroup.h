@@ -1,42 +1,42 @@
 //
-//  DPHueLight.h
+//  DPHueLightGroup.h
 //  DPHue
 //
 //  This class is in the public domain.
-//  Originally created by Dan Parsons in 2012.
+//  Created by James Reichley on 6/2/15.
 //
 //  https://github.com/danparsons/DPHue
 
 #import <Foundation/Foundation.h>
 
 
-@interface DPHueLight : NSObject <NSCoding>
+@interface DPHueLightGroup : NSObject <NSCoding>
 
 
 #pragma mark - Properties you may be interested in setting
 // Setting these values does not actually update the Hue
-// controller until [DPHueLight write] is called
+// controller until [DPHueLightGroup write] is called
 // (unless self.holdUpdates is set to NO, then changes are
 // immediate).
 
 /// Lamp brightness, valid values are 0 - 255.
 @property (nonatomic, strong) NSNumber *brightness;
 
-/// Lamp hue, in degrees*182, valid valuse are 0 - 65535.
+/// Lamp hue, in degrees*182, valid values are 0 - 65535.
 @property (nonatomic, strong) NSNumber *hue;
 
 /// Lamp saturation, valid values are 0 - 255.
 @property (nonatomic, strong) NSNumber *saturation;
 
-/**
+/** 
  Lamp on (or off). When a lamp is told to turn on,
  it returns to its last state, in terms of color,
  brightness, etc. Unless mains power was lost,
  then it returns to factory state, which is a warm color.
  */
-@property (nonatomic) BOOL on;
+@property (nonatomic, assign) BOOL on;
 
-/**
+/** 
  Color in (x,y) CIE 1931 coordinates. See below URL for details:<br />
  <a href="http://en.wikipedia.org/wiki/CIE_1931" >http://en.wikipedia.org/wiki/CIE_1931</a>
  */
@@ -60,7 +60,7 @@
 @property (nonatomic, copy) NSString *alert;
 
 /**
- If set to YES, changes are held until [DPHueLight write] is called.
+ If set to YES, changes are held until [DPHueLightGroup write] is called.
  
  @note Set to YES by default.
  */
@@ -69,7 +69,7 @@
 
 #pragma mark - Properties you may be interested in reading
 
-/// Lamp name, as returned by the controller.
+/// Group name, as returned by the controller, or as set during group creation.
 @property (nonatomic, readonly, copy) NSString *name;
 
 /**
@@ -80,23 +80,11 @@
  */
 @property (nonatomic, readonly, copy) NSString *colorMode; // "xy", "ct" or "hs"
 
-/**
- This returns the controller's best guess as to whether the lamp is
- reachable by the controller or not.
- */
-@property (nonatomic, readonly, assign) BOOL reachable;
-
-/// Firmware version of the lamp.
-@property (nonatomic, readonly, copy) NSString *swversion;
-
-/// Lamp model type.
-@property (nonatomic, readonly, copy) NSString *type;
-
-/// The number of the lamp, assigned by the controller.
+/// The group id, assigned by the controller.
 @property (nonatomic, strong) NSNumber *number;
 
-/// Lamp model ID.
-@property (nonatomic, readonly, copy) NSString *modelid;
+/// @[ NSNumbers ]
+@property (nonatomic, copy) NSArray *lightIds;
 
 
 #pragma mark - Properties you can probably ignore
@@ -107,7 +95,7 @@
 
 #pragma mark - Methods
 
-/// Re-download & parse controller's state for this particular light
+/// Re-download & parse controller's state for this particular group
 - (void)read;
 
 /// Write only pending changes to controller
@@ -119,20 +107,28 @@
 @end
 
 
-@interface DPHueLight (HueAPIRequestGeneration)
+@interface DPHueLightGroup (HueAPIRequestGeneration)
 
-- (NSURLRequest *)requestForGettingLightState;
-- (NSURLRequest *)requestForSettingLightState:(NSDictionary *)state;
+- (NSURLRequest *)requestForCreatingWithName:(NSString *)groupName lightIds:(NSArray *)lightIds;
+- (NSURLRequest *)requestForUpdatingWithName:(NSString *)groupName lightIds:(NSArray *)lightIds;
+- (NSURLRequest *)requestForGettingGroupState;
+- (NSURLRequest *)requestForSettingGroupState:(NSDictionary *)state;
 
 @end
 
 
-@interface DPHueLight (HueAPIJsonParsing)
+@interface DPHueLightGroup (HueAPIJsonParsing)
 
-// GET /lights/{id}
-- (instancetype)parseLightStateGet:(id)json;
+// POST /groups
+- (instancetype)parseGroupCreation:(id)json;
 
-// PUT /lights/{id}/state
-- (instancetype)parseLightStateSet:(id)json;
+// PUT /groups/{id}
+- (instancetype)parseGroupUpdate:(id)json;
+
+// GET /groups/{id}
+- (instancetype)parseGroupStateGet:(id)json;
+
+// PUT /groups/{id}/action
+- (instancetype)parseGroupStateSet:(id)json;
 
 @end
