@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name         = "DPHue"
-  s.version      = "0.0.2"
+  s.version      = "1.1.0"
   s.summary      = "Library for interacting with Philips Hue lighting systems."
   s.homepage     = "https://github.com/J-Swift/DPHue"
   s.license      = "public domain"
