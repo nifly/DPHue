@@ -28,17 +28,17 @@
 
 @implementation DPHue
 
-- (id)initWithHueHost:(NSString *)host username:(NSString *)username
+- (id)initWithHueHost:(NSString *)host generatedUsername:(NSString *)generatedUsername
 {
-    if ( self = [super init] )
-    {
-        _deviceType = @"QuickHue";
-        _authenticated = NO;
-        _host = host;
-        _username = username;
-    }
+  if ( self = [super init] )
+  {
+    _deviceType = @"QuickHue";
+    _authenticated = NO;
+    _host = host;
+    _generatedUsername = generatedUsername;
+  }
   
-    return self;
+  return self;
 }
 
 #pragma mark - NSCoding
@@ -47,7 +47,7 @@
   self = [super init];
   if (self) {
     _deviceType = @"QuickHue";
-    _username = [a decodeObjectForKey:@"username"];
+    _generatedUsername = [a decodeObjectForKey:@"generatedUsername"];
     _host = [a decodeObjectForKey:@"host"];
     _lights = [a decodeObjectForKey:@"lights"];
     _groups = [a decodeObjectForKey:@"groups"];
@@ -59,23 +59,23 @@
   [a encodeObject:_host forKey:@"host"];
   [a encodeObject:_lights forKey:@"lights"];
   [a encodeObject:_groups forKey:@"groups"];
-  [a encodeObject:_username forKey:@"username"];
+  [a encodeObject:_generatedUsername forKey:@"generatedUsername"];
 }
 
-- (void)setUsername:(NSString *)username
+- (void)setGeneratedUsername:(NSString *)generatedUsername
 {
-  _username = username;
+  _generatedUsername = generatedUsername;
   
   // As each DPHueLight and DPHueLightGroup maintains its own access URLs, they
   // too must be updated if URLs change.
   for (DPHueLight *light in self.lights)
   {
-    light.username = username;
+    light.username = generatedUsername;
   }
   
   for (DPHueLightGroup *group in self.groups)
   {
-    group.username = username;
+    group.username = generatedUsername;
   }
 }
 
@@ -121,24 +121,19 @@
   [connection start];
 }
 
-- (void)registerUsername
+- (void)registerDevice
 {
-  NSURLRequest *request = [self requestForRegisteringUsername:self.username
-                                               withDeviceType:self.deviceType];
+  NSURLRequest *request = [self requestForRegisteringDevice:self.deviceType];
   
   DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:request sender:self];
   connection.completionBlock = ^(DPHue *sender, id json, NSError *err) {
     if ( err )
       return;
     
-    [sender parseUsernameRegistration:json];
+    [sender parseDeviceRegistration:json];
   };
   
   [connection start];
-}
-
-+ (NSString *)generateUsername {
-    return [[[NSProcessInfo processInfo] globallyUniqueString] MD5String];
 }
 
 - (NSString *)description {
@@ -225,7 +220,7 @@
   // JPR TODO: handle lights being off during creation
   
   DPHueLightGroup *group = [DPHueLightGroup new];
-  group.username = self.username;
+  group.username = self.generatedUsername;
   group.host = self.host;
   NSURLRequest *request = [group requestForCreatingWithName:name lightIds:lightIds];
   DPJSONConnection *conn = [[DPJSONConnection alloc] initWithRequest:request sender:self];
@@ -306,37 +301,30 @@
 
 #pragma mark - HueAPIRequestGeneration
 
-- (NSURL *)baseURL
-{
-  NSAssert([self.host length], @"No host set");
-  NSAssert([self.username length], @"No username set");
-  
-  NSString *basePath = [NSString stringWithFormat:@"http://%@/api/%@",
-                        self.host, self.username];
-  
-  return [NSURL URLWithString:basePath];
-}
-
-- (NSURLRequest *)requestForRegisteringUsername:(NSString *)username withDeviceType:(NSString *)deviceType
+- (NSURLRequest *)requestForRegisteringDevice:(NSString *)deviceType
 {
   NSAssert([self.host length], @"No host set");
   
   NSString *urlPath = [NSString stringWithFormat:@"http://%@/api", self.host];
   NSURL *url = [NSURL URLWithString:urlPath];
   
-  NSDictionary *usernameDict = @{@"devicetype": deviceType, @"username": username};
+  NSDictionary *postData = @{@"devicetype": deviceType};
   // JPR TODO: pass and check error
-  NSData *usernameJson = [NSJSONSerialization dataWithJSONObject:usernameDict options:0 error:nil];
+  NSData *postJson = [NSJSONSerialization dataWithJSONObject:postData options:0 error:nil];
   NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:url];
   request.HTTPMethod = @"POST";
-  request.HTTPBody = usernameJson;
+  request.HTTPBody = postJson;
   
   return request;
 }
 
 - (NSURLRequest *)requestForReadingControllerState
 {
-  NSURL *url = [self baseURL];
+  NSAssert([self.host length], @"No host set");
+  
+  NSString *urlPath = [NSString stringWithFormat:@"http://%@/api/%@",
+                       self.host, self.generatedUsername];
+  NSURL *url = [NSURL URLWithString:urlPath];
   
   NSURLRequest *request = [NSURLRequest requestWithURL:url];
   return request;
@@ -346,13 +334,25 @@
 #pragma mark - HueAPIJsonParsing
 
 // POST /
-- (instancetype)parseUsernameRegistration:(id)json
+- (instancetype)parseDeviceRegistration:(id)json
 {
-  // JPR TODO: do something here
+  if ( [json respondsToSelector:@selector(firstObject)]
+      && [[json firstObject] isKindOfClass:[NSDictionary class]]
+      && [json firstObject][@"success"][@"username"] )
+  {
+    _generatedUsername = [json firstObject][@"success"][@"username"];
+    _authenticated = YES;
+  }
+  else
+  {
+    _generatedUsername = nil;
+    _authenticated = NO;
+  }
+  
   return self;
 }
 
-// GET /
+// GET /{username}
 - (instancetype)parseControllerState:(id)json
 {
   if ( ![json respondsToSelector:@selector(objectForKeyedSubscript:)] )
@@ -381,7 +381,7 @@
     DPHueLight *light = [DPHueLight new];
     [light parseLightStateGet:json[@"lights"][lightItem]];
     light.number = [f numberFromString:lightItem];
-    light.username = self.username;
+    light.username = self.generatedUsername;
     light.host = self.host;
     [tmpLights addObject:light];
   }
@@ -393,7 +393,7 @@
     DPHueLightGroup *group = [DPHueLightGroup new];
     [group parseGroupStateGet:json[@"groups"][groupItem]];
     group.number = [f numberFromString:groupItem];
-    group.username = self.username;
+    group.username = self.generatedUsername;
     group.host = self.host;
     [tmpGroups addObject:group];
   }

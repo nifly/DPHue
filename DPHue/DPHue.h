@@ -22,7 +22,7 @@
  The API username DPHue will use when communicating with the Hue controller.
  The Hue API requires this be an MD5 hash of something.
  */
-@property (nonatomic, copy) NSString *username;
+@property (nonatomic, copy) NSString *generatedUsername;
 
 /// The hostname (or IP address) that DPHue will talk to.
 @property (nonatomic, copy) NSString *host;
@@ -60,25 +60,15 @@
 #pragma mark - Methods
 
 /**
- Utility method for generating a username that Hue will like. It requires
- usernames to be MD5 hashes.
- 
- This method returns a md5 hash of the system's hostname.
+ * Generate a DPHue object with the given parameters.
+ *
+ * @param host
+ *          The hostname or IP of the Hue controller you want to talk to.
+ * @param generatedUsername
+ *          An md5 string from a previously successful call to @p [DPHue registerDevice].
+ *          If this is your first time interacting with the controller, use @p nil.
  */
-+ (NSString *)generateUsername;
-
-/**
- Generate a DPHue object with the given parameters.
- 
- @param host
-          The hostname or IP of the Hue controller you want to talk to.
- @param username
-          An md5 string. Use @p [DPHue generateUsername] to
-          create one if you don't have one already. In that case, you'll also
-          have to register the username with the controller, using
-          @p [DPHue registerUsername].
- */
-- (id)initWithHueHost:(NSString *)host username:(NSString *)username;
+- (id)initWithHueHost:(NSString *)host generatedUsername:(NSString *)generatedUsername;
 
 /**
  Download the complete state of the Hue controller, including the state
@@ -88,14 +78,17 @@
 - (void)readWithCompletion:(void (^)(DPHue *hue, NSError *err))block;
 
 /**
- This will attempt to register @p self.username with the Hue controller.
- This will fail unless the physical button on the Hue controller has
- been pressed within the last 30 seconds. The workflow for this method
- is a loop: tell the user to press the button on their controller, call
- this method, then check self.authenticated. If NO, keep calling this
- method. See @p DPQuickHue for implementation example.
+ * This will attempt to register @p self.deviceType with the Hue controller.
+ * This will fail unless the physical button on the Hue controller has
+ * been pressed within the last 30 seconds. The workflow for this method
+ * is a loop: tell the user to press the button on their controller, call
+ * this method, then check self.authenticated. If NO, keep calling this
+ * method. See @p DPQuickHue for implementation example.
+ * 
+ * Once authenticated, you should be sure to save off the value of @p DPHue.generatedUsername
+ * so you can reconnect to the controller later without re-registering.
  */
-- (void)registerUsername;
+- (void)registerDevice;
 
 /**
  Triggers the Touchlink feature in a Hue controller, which causes it to
@@ -190,7 +183,7 @@
 
 @interface DPHue (HueAPIRequestGeneration)
 
-- (NSURLRequest *)requestForRegisteringUsername:(NSString *)username withDeviceType:(NSString *)deviceType;
+- (NSURLRequest *)requestForRegisteringDevice:(NSString *)deviceType;
 - (NSURLRequest *)requestForReadingControllerState;
 
 @end
@@ -199,8 +192,8 @@
 @interface DPHue (HueAPIJsonParsing)
 
 // POST /
-- (instancetype)parseUsernameRegistration:(id)json;
-// GET /
+- (instancetype)parseDeviceRegistration:(id)json;
+// GET /{username}
 - (instancetype)parseControllerState:(id)json;
 
 @end
