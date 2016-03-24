@@ -1,6 +1,6 @@
 //
-//  DPHue.h
-//  DPHue
+//  DPHueBridge.h
+//  DPHueBridge
 //
 //  This class is in the public domain.
 //  Originally created by Dan Parsons in 2012.
@@ -13,18 +13,18 @@
 @class DPHueLightGroup;
 
 
-@interface DPHue : NSObject <NSCoding>
+@interface DPHueBridge : NSObject <NSCoding>
 
 
 #pragma mark - Properties you may be interested in setting
 
 /**
- The API username DPHue will use when communicating with the Hue controller.
+ The API username DPHueBridge will use when communicating with the Hue controller.
  The Hue API requires this be an MD5 hash of something.
  */
 @property (nonatomic, copy) NSString *generatedUsername;
 
-/// The hostname (or IP address) that DPHue will talk to.
+/// The hostname (or IP address) that DPHueBridge will talk to.
 @property (nonatomic, copy) NSString *host;
 
 
@@ -60,12 +60,12 @@
 #pragma mark - Methods
 
 /**
- * Generate a DPHue object with the given parameters.
+ * Generate a DPHueBridge object with the given parameters.
  *
  * @param host
  *          The hostname or IP of the Hue controller you want to talk to.
  * @param generatedUsername
- *          An md5 string from a previously successful call to @p [DPHue registerDevice].
+ *          An md5 string from a previously successful call to @p [DPHueBridge registerDevice].
  *          If this is your first time interacting with the controller, use @p nil.
  */
 - (id)initWithHueHost:(NSString *)host generatedUsername:(NSString *)generatedUsername;
@@ -75,7 +75,7 @@
  of all lights and groups. @p block is called when the operation is complete.
  This normally takes only 1 to 3 seconds.
  */
-- (void)readWithCompletion:(void (^)(DPHue *hue, NSError *err))block;
+- (void)readWithCompletion:(void (^)(DPHueBridge *hue, NSError *err))block;
 
 /**
  * This will attempt to register @p self.deviceType with the Hue controller.
@@ -85,7 +85,7 @@
  * this method, then check self.authenticated. If NO, keep calling this
  * method. See @p DPQuickHue for implementation example.
  * 
- * Once authenticated, you should be sure to save off the value of @p DPHue.generatedUsername
+ * Once authenticated, you should be sure to save off the value of @p DPHueBridge.generatedUsername
  * so you can reconnect to the controller later without re-registering.
  */
 - (void)registerDevice;
@@ -181,7 +181,7 @@
 @end
 
 
-@interface DPHue (HueAPIRequestGeneration)
+@interface DPHueBridge (HueAPIRequestGeneration)
 
 - (NSURLRequest *)requestForRegisteringDevice:(NSString *)deviceType;
 - (NSURLRequest *)requestForReadingControllerState;
@@ -189,7 +189,7 @@
 @end
 
 
-@interface DPHue (HueAPIJsonParsing)
+@interface DPHueBridge (HueAPIJsonParsing)
 
 // POST /
 - (instancetype)parseDeviceRegistration:(id)json;

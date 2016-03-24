@@ -1,13 +1,13 @@
 //
-//  DPHue.m
-//  DPHue
+//  DPHueBridge.m
+//  DPHueBridge
 //
 //  This class is in the public domain.
 //  Originally created by Dan Parsons in 2012.
 //
 //  https://github.com/danparsons/DPHue
 
-#import "DPHue.h"
+#import "DPHueBridge.h"
 #import "DPHueLight.h"
 #import "DPHueLightGroup.h"
 #import "DPJSONConnection.h"
@@ -16,7 +16,7 @@
 #import <CocoaAsyncSocket/GCDAsyncSocket.h>
 
 
-@interface DPHue () <GCDAsyncSocketDelegate>
+@interface DPHueBridge () <GCDAsyncSocketDelegate>
 
 // JPR TODO: allow setting from the outside
 @property (nonatomic, strong) NSString *deviceType;
@@ -26,7 +26,7 @@
 @end
 
 
-@implementation DPHue
+@implementation DPHueBridge
 
 - (id)initWithHueHost:(NSString *)host generatedUsername:(NSString *)generatedUsername
 {
@@ -96,10 +96,10 @@
   }
 }
 
-- (void)readWithCompletion:(void (^)(DPHue *, NSError *))block
+- (void)readWithCompletion:(void (^)(DPHueBridge *, NSError *))block
 {
   // Cut down on if-checks within completionBlock
-  void (^innerBlock)(DPHue *, NSError *) = ^(DPHue *hue, NSError *error) {
+  void (^innerBlock)(DPHueBridge *, NSError *) = ^(DPHueBridge *hue, NSError *error) {
     if ( block )
       block(hue, error);
   };
@@ -107,7 +107,7 @@
   NSURLRequest *request = [self requestForReadingControllerState];
   
   DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:request sender:self];
-  connection.completionBlock = ^(DPHue *sender, id json, NSError *err) {
+  connection.completionBlock = ^(DPHueBridge *sender, id json, NSError *err) {
     if ( err )
     {
       innerBlock( nil, err );
@@ -126,7 +126,7 @@
   NSURLRequest *request = [self requestForRegisteringDevice:self.deviceType];
   
   DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:request sender:self];
-  connection.completionBlock = ^(DPHue *sender, id json, NSError *err) {
+  connection.completionBlock = ^(DPHueBridge *sender, id json, NSError *err) {
     if ( err )
       return;
     
@@ -226,7 +226,7 @@
   DPJSONConnection *conn = [[DPJSONConnection alloc] initWithRequest:request sender:self];
   if ( onCompletionBlock )
   {
-    conn.completionBlock = ^(DPHue *sender, id json, NSError *err) {
+    conn.completionBlock = ^(DPHueBridge *sender, id json, NSError *err) {
       if ( err )
       {
         onCompletionBlock( NO, nil );
@@ -252,7 +252,7 @@
   DPJSONConnection *conn = [[DPJSONConnection alloc] initWithRequest:request sender:self];
   if ( onCompletionBlock )
   {
-    conn.completionBlock = ^(DPHue *sender, id json, NSError *err) {
+    conn.completionBlock = ^(DPHueBridge *sender, id json, NSError *err) {
       if ( err )
       {
         onCompletionBlock( NO, nil );
