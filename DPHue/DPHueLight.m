@@ -109,6 +109,15 @@
 
 #pragma mark - Setters that update pendingChanges
 
+NSNumber* _clampNumber(NSNumber* number, NSInteger low, NSInteger high) {
+    NSInteger val = number.integerValue;
+    if (val > high)
+        return @(high);
+    if (val < low)
+        return @(low);
+    return number;
+}
+
 - (void)setOn:(BOOL)on {
     _on = on;
     self.pendingChanges[@"on"] = [NSNumber numberWithBool:on];
@@ -117,14 +126,14 @@
 }
 
 - (void)setBrightness:(NSNumber *)brightness {
-    _brightness = brightness;
+    _brightness = (brightness = _clampNumber(brightness, 0, 255));
     self.pendingChanges[@"bri"] = brightness;
     if (!self.holdUpdates)
         [self write];
 }
 
 - (void)setHue:(NSNumber *)hue {
-    _hue = hue;
+    _hue = (hue = _clampNumber(hue, 0, 65535));
     self.pendingChanges[@"hue"] = hue;
     if (!self.holdUpdates)
         [self write];
@@ -139,7 +148,7 @@
 }
 
 - (void)setColorTemperature:(NSNumber *)colorTemperature {
-    _colorTemperature = colorTemperature;
+    _colorTemperature = (colorTemperature = _clampNumber(colorTemperature, 154, 500));
     self.pendingChanges[@"ct"] = colorTemperature;
     if (!self.holdUpdates)
         [self write];
@@ -155,7 +164,7 @@
 
 - (void)setSaturation:(NSNumber *)saturation {
     _saturation = saturation;
-    self.pendingChanges[@"sat"] = saturation;
+    self.pendingChanges[@"sat"] = (saturation = _clampNumber(saturation, 0, 255));
     if (!self.holdUpdates)
         [self write];
 }
