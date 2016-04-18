@@ -6,8 +6,6 @@
 //
 //
 
-#import "DPHueObject.h"
-
 @class DPHueBridge;
 
 @interface DPHueSchedule : NSObject<NSCoding>
