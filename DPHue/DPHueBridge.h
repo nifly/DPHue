@@ -20,9 +20,14 @@
 
 /**
  The API username DPHueBridge will use when communicating with the Hue controller.
- The Hue API requires this be an MD5 hash of something.
+ The generatedUsername is created by the Hue bridge when linking the device with the bridge.
  */
 @property (nonatomic, copy) NSString *generatedUsername;
+
+/**
+ legacyUsername, may no longer be accepted by new bridges.
+ */
+@property (nonatomic, copy) NSString *legacyUsername;
 
 /// The hostname (or IP address) that DPHueBridge will talk to.
 @property (nonatomic, copy) NSString *host;
@@ -37,6 +42,9 @@
  but I didn't implement that feature.
  */
 @property (nonatomic, readonly, copy) NSString *name;
+
+// The mac-address of the Hue controller, as returned by the API
+@property (nonatomic, strong) NSString *mac;
 
 /// Firmware version
 @property (nonatomic, readonly, copy) NSString *swversion;
@@ -89,6 +97,8 @@
  * so you can reconnect to the controller later without re-registering.
  */
 - (void)registerDevice;
+
+- (void)registerDeviceWithCompletion:(void(^_Nullable)(DPHueBridge* sender, id json, NSError* error))completion;
 
 /**
  Triggers the Touchlink feature in a Hue controller, which causes it to

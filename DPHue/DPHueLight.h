@@ -9,9 +9,11 @@
 
 #import <Foundation/Foundation.h>
 
+@class DPHueBridge;
 
 @interface DPHueLight : NSObject <NSCoding>
 
+- (id)initWithBridge:(DPHueBridge *)aBridge;
 
 #pragma mark - Properties you may be interested in setting
 // Setting these values does not actually update the Hue
@@ -104,8 +106,14 @@
 @property (nonatomic, copy) NSString *username;
 @property (nonatomic, copy) NSString *host;
 
+@property (nonatomic, weak) DPHueBridge *bridge;
 
 #pragma mark - Methods
+
+- (void)alertLight;
+
+/// Re-download & parse controller's state for this particular light
+- (void)readWithSuccess:(void(^)(BOOL success))onCompleted;
 
 /// Re-download & parse controller's state for this particular light
 - (void)read;
