@@ -15,23 +15,14 @@
 
 #import <Foundation/Foundation.h>
 
-// Conforming to this protocol allows a UI to be informed if a
-// Hue controller was found.
-@protocol DPHueDiscoverDelegate <NSObject>
-- (void)foundHueAt:(NSString *)host discoveryLog:(NSString *)log;
-@end
-
 @interface DPHueDiscover : NSObject
 
-@property (nonatomic, weak) id<DPHueDiscoverDelegate> delegate;
-
 - (instancetype)init NS_UNAVAILABLE;
-- (id)initWithDelegate:(id<DPHueDiscoverDelegate>)delegate NS_DESIGNATED_INITIALIZER;
 
-// Start discovery process, stopping after specified seconds, calling block when done.
-- (void)discoverForDuration:(int)seconds withCompletion:(void (^)(NSMutableString *log))block;
++ (instancetype)discoverWithDuration:(NSInteger)duration hueFound:(void(^_Nullable)(NSString* host, NSString* mac))hueFound completion:(void(^_Nullable)(NSDictionary* discovered, NSString* log, NSError* error))completion;
 
-// Stop discovery process early
+- (instancetype)initWithDuration:(NSInteger)duration hueFound:(void(^_Nullable)(NSString* host, NSString* mac))hueFound completion:(void(^_Nullable)(NSDictionary* discovered, NSString* log, NSError* error))completion;
+
 - (void)stopDiscovery;
 
 @end

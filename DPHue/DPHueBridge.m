@@ -1,13 +1,13 @@
 //
-//  DPHue.m
-//  DPHue
+//  DPHueBridge.m
+//  DPHueBridge
 //
 //  This class is in the public domain.
 //  Originally created by Dan Parsons in 2012.
 //
 //  https://github.com/danparsons/DPHue
 
-#import "DPHue.h"
+#import "DPHueBridge.h"
 #import "DPHueLight.h"
 #import "DPHueLightGroup.h"
 #import "DPJSONConnection.h"
@@ -16,7 +16,7 @@
 #import <CocoaAsyncSocket/GCDAsyncSocket.h>
 
 
-@interface DPHue () <GCDAsyncSocketDelegate>
+@interface DPHueBridge () <GCDAsyncSocketDelegate>
 
 // JPR TODO: allow setting from the outside
 @property (nonatomic, strong) NSString *deviceType;
@@ -26,7 +26,7 @@
 @end
 
 
-@implementation DPHue
+@implementation DPHueBridge
 
 - (id)initWithHueHost:(NSString *)host generatedUsername:(NSString *)generatedUsername
 {
@@ -44,22 +44,32 @@
 #pragma mark - NSCoding
 
 - (id)initWithCoder:(NSCoder *)a {
-  self = [super init];
-  if (self) {
-    _deviceType = @"QuickHue";
-    _generatedUsername = [a decodeObjectForKey:@"generatedUsername"];
-    _host = [a decodeObjectForKey:@"host"];
-    _lights = [a decodeObjectForKey:@"lights"];
-    _groups = [a decodeObjectForKey:@"groups"];
-  }
-  return self;
+    self = [super init];
+    if (self) {
+        _deviceType = @"QuickHue";
+        _legacyUsername = [a decodeObjectForKey:@"username"];
+        _generatedUsername = [a decodeObjectForKey:@"generatedUsername"];
+        _host = [a decodeObjectForKey:@"host"];
+        _mac = [a decodeObjectForKey:@"mac"];
+        _lights = [a decodeObjectForKey:@"lights"];
+        _groups = [a decodeObjectForKey:@"groups"];
+        // Conncet lights to self...
+        for (DPHueLight* light in _lights)
+            light.bridge = self;
+        for (DPHueLightGroup* group in _groups)
+            group.bridge = self;
+    }
+    return self;
 }
 
 - (void)encodeWithCoder:(NSCoder *)a {
-  [a encodeObject:_host forKey:@"host"];
-  [a encodeObject:_lights forKey:@"lights"];
-  [a encodeObject:_groups forKey:@"groups"];
-  [a encodeObject:_generatedUsername forKey:@"generatedUsername"];
+    [a encodeObject:_host forKey:@"host"];
+    [a encodeObject:_mac forKey:@"mac"];
+    [a encodeObject:_lights forKey:@"lights"];
+    [a encodeObject:_groups forKey:@"groups"];
+    [a encodeObject:_generatedUsername forKey:@"generatedUsername"];
+    if (_legacyUsername)
+        [a encodeObject:_legacyUsername forKey:@"username"];
 }
 
 - (void)setGeneratedUsername:(NSString *)generatedUsername
@@ -96,10 +106,10 @@
   }
 }
 
-- (void)readWithCompletion:(void (^)(DPHue *, NSError *))block
+- (void)readWithCompletion:(void (^)(DPHueBridge *, NSError *))block
 {
   // Cut down on if-checks within completionBlock
-  void (^innerBlock)(DPHue *, NSError *) = ^(DPHue *hue, NSError *error) {
+  void (^innerBlock)(DPHueBridge *, NSError *) = ^(DPHueBridge *hue, NSError *error) {
     if ( block )
       block(hue, error);
   };
@@ -107,7 +117,7 @@
   NSURLRequest *request = [self requestForReadingControllerState];
   
   DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:request sender:self];
-  connection.completionBlock = ^(DPHue *sender, id json, NSError *err) {
+  connection.completionBlock = ^(DPHueBridge *sender, id json, NSError *err) {
     if ( err )
     {
       innerBlock( nil, err );
@@ -121,19 +131,19 @@
   [connection start];
 }
 
-- (void)registerDevice
-{
-  NSURLRequest *request = [self requestForRegisteringDevice:self.deviceType];
-  
-  DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:request sender:self];
-  connection.completionBlock = ^(DPHue *sender, id json, NSError *err) {
-    if ( err )
-      return;
-    
-    [sender parseDeviceRegistration:json];
-  };
-  
-  [connection start];
+- (void)registerDevice {
+    [self registerDeviceWithCompletion:nil];
+}
+
+- (void)registerDeviceWithCompletion:(void(^_Nullable)(DPHueBridge* sender, id json, NSError* error))completion {
+    DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:[self requestForRegisteringDevice:self.deviceType] sender:self];
+    connection.completionBlock = ^(DPHueBridge *sender, id json, NSError *err) {
+        if (!err)
+            [sender parseDeviceRegistration:json];
+        if (completion)
+            completion(sender, json, err);
+    };
+    [connection start];
 }
 
 - (NSString *)description {
@@ -219,14 +229,14 @@
 {
   // JPR TODO: handle lights being off during creation
   
-  DPHueLightGroup *group = [DPHueLightGroup new];
+  DPHueLightGroup *group = [[DPHueLightGroup alloc] initWithBridge:self];
   group.username = self.generatedUsername;
   group.host = self.host;
   NSURLRequest *request = [group requestForCreatingWithName:name lightIds:lightIds];
   DPJSONConnection *conn = [[DPJSONConnection alloc] initWithRequest:request sender:self];
   if ( onCompletionBlock )
   {
-    conn.completionBlock = ^(DPHue *sender, id json, NSError *err) {
+    conn.completionBlock = ^(DPHueBridge *sender, id json, NSError *err) {
       if ( err )
       {
         onCompletionBlock( NO, nil );
@@ -252,7 +262,7 @@
   DPJSONConnection *conn = [[DPJSONConnection alloc] initWithRequest:request sender:self];
   if ( onCompletionBlock )
   {
-    conn.completionBlock = ^(DPHue *sender, id json, NSError *err) {
+    conn.completionBlock = ^(DPHueBridge *sender, id json, NSError *err) {
       if ( err )
       {
         onCompletionBlock( NO, nil );
@@ -371,6 +381,7 @@
   }
   
   _swversion = json[@"config"][@"swversion"];
+  _mac = json[@"config"][@"mac"];
   
   NSNumberFormatter *f = [NSNumberFormatter new];
   f.numberStyle = NSNumberFormatterDecimalStyle;
@@ -378,26 +389,26 @@
   NSMutableArray *tmpLights = [NSMutableArray new];
   for ( NSString *lightItem in json[@"lights"] )
   {
-    DPHueLight *light = [DPHueLight new];
+    DPHueLight *light = [[DPHueLight alloc] initWithBridge:self];
     [light parseLightStateGet:json[@"lights"][lightItem]];
     light.number = [f numberFromString:lightItem];
     light.username = self.generatedUsername;
     light.host = self.host;
     [tmpLights addObject:light];
   }
-  _lights = tmpLights;
+  _lights = [NSArray arrayWithArray:tmpLights];
   
   NSMutableArray *tmpGroups = [NSMutableArray new];
   for ( NSString *groupItem in json[@"groups"] )
   {
-    DPHueLightGroup *group = [DPHueLightGroup new];
+    DPHueLightGroup *group = [[DPHueLightGroup alloc] initWithBridge:self];
     [group parseGroupStateGet:json[@"groups"][groupItem]];
     group.number = [f numberFromString:groupItem];
     group.username = self.generatedUsername;
     group.host = self.host;
     [tmpGroups addObject:group];
   }
-  _groups = tmpGroups;
+  _groups = [NSArray arrayWithArray:tmpGroups];
   
   return self;
 }

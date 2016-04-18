@@ -11,6 +11,7 @@
 #import "WSLog.h"
 
 
+static const NSObject *CONNECTION_LOCK = nil;
 static NSMutableArray *sharedConnectionList = nil;
 
 
@@ -22,6 +23,12 @@ static NSMutableArray *sharedConnectionList = nil;
 
 
 @implementation DPJSONConnection
+
++ (void)initialize
+{
+  [super initialize];
+  CONNECTION_LOCK = [NSObject new];
+}
 
 - (id)initWithRequest:(NSURLRequest *)request sender:(id)sender;
 {
@@ -36,9 +43,13 @@ static NSMutableArray *sharedConnectionList = nil;
 
 - (void)start
 {
-  if (!sharedConnectionList)
-    sharedConnectionList = [NSMutableArray new];
-  [sharedConnectionList addObject:self];
+  // NSMutableArray is not thread-safe, so we need to take care we don't cause
+  // any invalid accesses
+  @synchronized(CONNECTION_LOCK) {
+    if (!sharedConnectionList)
+      sharedConnectionList = [NSMutableArray new];
+    [sharedConnectionList addObject:self];
+  }
   
   // Avoid if-checks within the `internalTask` completion block
   __weak typeof(self)wkSelf = self;
@@ -50,7 +61,10 @@ static NSMutableArray *sharedConnectionList = nil;
         strongSelf.completionBlock( strongSelf.sender, json, err );
       });
     }
-    [sharedConnectionList removeObject:strongSelf];
+    
+    @synchronized(CONNECTION_LOCK) {
+      [sharedConnectionList removeObject:strongSelf];
+    }
   };
   
   NSURLSession *session = [NSURLSession sharedSession];

@@ -24,14 +24,14 @@
 
 #pragma mark - Initializers
 
-- (instancetype)init
-{
-  if ( self = [super init] )
-  {
-    [self performCommonInit];
-  }
-  
-  return self;
+- (instancetype)initWithBridge:(DPHueBridge *)aBridge {
+    if ( self = [super init] )
+    {
+        [self performCommonInit];
+        _bridge = aBridge;
+    }
+    
+    return self;
 }
 
 - (void)performCommonInit

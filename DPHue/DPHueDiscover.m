@@ -13,86 +13,141 @@
 #import "WSLog.h"
 #import <CocoaAsyncSocket/GCDAsyncUdpSocket.h>
 
-@interface DPHueDiscover () <GCDAsyncUdpSocketDelegate>
-@property (nonatomic, strong) GCDAsyncUdpSocket *udpSocket;
-@property (nonatomic) BOOL foundHue;
-@property (nonatomic, strong) NSMutableString *log;
-@end
+#define AppendLogStr(str, fmt, ...) { if (str) { str = [str stringByAppendingFormat:@"%@: %@\n", [NSDate date], [NSString stringWithFormat:(fmt), ##__VA_ARGS__]]; } else { str = [NSString stringWithFormat:@"%@: %@\n", [NSDate date], [NSString stringWithFormat:(fmt), ##__VA_ARGS__]]; } };
 
-@implementation DPHueDiscover
+#pragma mark - C functions
 
-- (id)initWithDelegate:(id<DPHueDiscoverDelegate>)delegate {
-  self = [super init];
-  if (self) {
-    _delegate = delegate;
-    _log = [[NSMutableString alloc] init];
-  }
-  return self;
+NSString* _MacAddressWithSeparators(NSString* aMacAddress) {
+    if (!aMacAddress)
+        return nil;
+    if (aMacAddress.length == 12)
+        aMacAddress = [@[[aMacAddress substringToIndex:2],
+                         [aMacAddress substringWithRange:(NSRange){.location=2, .length=2}],
+                         [aMacAddress substringWithRange:(NSRange){.location=4, .length=2}],
+                         [aMacAddress substringWithRange:(NSRange){.location=6, .length=2}],
+                         [aMacAddress substringWithRange:(NSRange){.location=8, .length=2}],
+                         [aMacAddress substringFromIndex:10]] componentsJoinedByString:@":"];
+    return aMacAddress;
 }
 
-- (void)discoverForDuration:(int)seconds withCompletion:(void (^)(NSMutableString *log))block {
-  WSLog(@"Starting discovery, via meethue.com API first");
-  [self appendToLog:@"Starting disovery"];
-  
-  DPHueNUPNP *pnp = [DPHueNUPNP new];
-  NSURLRequest *request = [pnp requestForDiscovery];
-  [self appendToLog:[NSString stringWithFormat:@"Making request to %@", request]];
-  
-  DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:request sender:self];
-  connection.completionBlock = ^(DPHueDiscover *sender, id json, NSError *err) {
-    if ( err )
-    {
-      [sender appendToLog:@"Error hitting web service, starting SSDP discovery"];
-      [sender startSSDPDiscovery];
-      return;
+#pragma mark - DPHueDiscover
+
+@implementation DPHueDiscover
+{
+    NSString* log;
+    NSMutableDictionary* discovered;
+    NSMutableSet* tested;
+    GCDAsyncUdpSocket* udpSocket;
+    NSError* discoveryError;
+    void (^doHueFound)(NSString* host, NSString* mac);
+    void (^doCompletion)(NSDictionary* discovered, NSString* log, NSError* error);
+}
+
++ (instancetype)discoverWithDuration:(NSInteger)duration hueFound:(void(^_Nullable)(NSString* host, NSString* mac))hueFound completion:(void(^_Nullable)(NSDictionary* discovered, NSString* log, NSError* error))completion {
+    return [[DPHueDiscover alloc] initWithDuration:duration hueFound:hueFound completion:completion];
+}
+
+- (instancetype)initWithDuration:(NSInteger)duration hueFound:(void(^_Nullable)(NSString* host, NSString* mac))hueFound completion:(void(^_Nullable)(NSDictionary* discovered, NSString* log, NSError* error))completion {
+    self = [super init];
+    if (self) {
+        [self discoverHueForDuration:duration hueFound:hueFound completion:completion];
     }
+    return self;
+}
+
+#pragma mark Discovery
+
+
+-(void)discoverHueForDuration:(NSInteger)duration hueFound:(void(^_Nullable)(NSString* host, NSString* mac))hueFound completion:(void(^_Nullable)(NSDictionary* discovered, NSString* log, NSError* error))completion {
+    assert(discovered == nil);
+    discovered = [NSMutableDictionary new];
+    doHueFound = hueFound;
+    doCompletion = completion;
+   
+    AppendLogStr(log, @"Starting discovery, via meethue.com API first");
+    AppendLogStr(log, @"Making request to https://www.meethue.com/api/nupnp");
+    DPJSONConnection* connection = [[DPJSONConnection alloc] initWithRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://www.meethue.com/api/nupnp"]] sender:nil];
+    connection.completionBlock = ^(DPHueDiscover* sender, id json, NSError* err) {
+        // If there was an error, use SSDP discovery...
+        if (err) {
+            AppendLogStr(log, @"Error hitting web service, starting SSDP discovery");
+            [self startSSDPDiscovery];
+            return;
+        }
+        // Get the hues registered at the local network from www.meethue.com/api/nupnp
+        NSInteger nFound = 0;
+        if ([json respondsToSelector:@selector(objectAtIndex:)] && [json respondsToSelector:@selector(count)])
+            for (id aProperties in json)
+                if ([aProperties respondsToSelector:@selector(objectForKey:)] && aProperties[@"id"] && aProperties[@"internalipaddress"])
+                    nFound++;
+        // If no hues are found, use SSDP discovery...
+        if (nFound == 0) {
+            AppendLogStr(log, @"Received response from web service, but no IP, starting SSDP discovery");
+            [self startSSDPDiscovery];
+            return;
+        }
+        // Parse all hues found...
+        for (id aProperties in json) {
+            NSString* hueID;
+            NSString* hueInternalIP;
+            if ([aProperties respondsToSelector:@selector(objectForKey:)] && (hueID = aProperties[@"id"]) && (hueInternalIP = aProperties[@"internalipaddress"])) {
+                NSString* hueMac = aProperties[@"macaddress"];
+                // If mac address is missing, extract mac address from id (first 6 and last 6 characters)...
+                if (!hueMac && (hueID.length >= 12))
+                    hueMac = [[hueID substringToIndex:6] stringByAppendingString:[hueID substringFromIndex:hueID.length-6]];
+                // Insert mac address separators...
+                hueMac = _MacAddressWithSeparators(hueMac);
+                // Log and Report...
+                AppendLogStr(log, @"Received Hue IP from web service: %@ with id %@", hueInternalIP, hueID);
+                if (hueMac && discovered && !discovered[hueMac]) {
+                    discovered[hueMac] = hueInternalIP;
+                    if (doHueFound)
+                        doHueFound(hueInternalIP, hueMac);
+                }
+            }
+        }
+        // If we have not initiated an SSDP search, then stop discovery at this point...
+        if (!udpSocket)
+            [self stopDiscovery];
+    };
+    [connection start];
     
-    [pnp parseDiscovery:json];
-    if ( !pnp.hueIP )
-    {
-      [sender appendToLog:@"Received response from web service, but no IP, starting SSDP discovery"];
-      [sender startSSDPDiscovery];
-      return;
-    }
-    
-    [sender appendToLog:[NSString stringWithFormat:@"Received Hue IP from web service: %@", pnp.hueIP]];
-    sender.foundHue = YES;
-    
-    if ([sender.delegate respondsToSelector:@selector(foundHueAt:discoveryLog:)])
-    {
-      [sender.delegate foundHueAt:pnp.hueIP discoveryLog:sender.log];
-    }
-  };
-  
-  [connection start];
-  
-  // `seconds` seconds later, stop discovering
-  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, seconds * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-    // JPR TODO: swap the order to get full log before triggering callback
-    block(self.log);
-    [self stopDiscovery];
-  });
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(duration * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [self stopDiscovery];
+    });
 }
 
 - (void)startSSDPDiscovery {
-  [self appendToLog:@"Starting SSDP discovery"];
-  self.udpSocket = [self createSocket];
-  NSString *msg = @"M-SEARCH * HTTP/1.1\r\nHost: 239.255.255.250:1900\r\nMan: ssdp:discover\r\nMx: 3\r\nST: \"ssdp:all\"\r\n\r\n";
-  NSData *msgData = [msg dataUsingEncoding:NSUTF8StringEncoding];
-  [self.udpSocket sendData:msgData toHost:@"239.255.255.250" port:1900 withTimeout:-1 tag:0];
+    if (!udpSocket) {
+        AppendLogStr(log, @"Starting SSDP discovery");
+        tested = [NSMutableSet new];
+        udpSocket = [self createSocket];
+        NSString *msg = @"M-SEARCH * HTTP/1.1\r\nHost: 239.255.255.250:1900\r\nMan: ssdp:discover\r\nMx: 3\r\nST: \"ssdp:all\"\r\n\r\n";
+        NSData *msgData = [msg dataUsingEncoding:NSUTF8StringEncoding];
+        [udpSocket sendData:msgData toHost:@"239.255.255.250" port:1900 withTimeout:-1 tag:0];
+    }
 }
 
 - (void)stopDiscovery {
-  WSLog(@"Stopping discovery");
-  [self appendToLog:@"Discovery stopped"];
-  [self.udpSocket close];
-  self.udpSocket = nil;
+    if (udpSocket)
+        [udpSocket close];
+    if (discovered) {
+        AppendLogStr(log, @"Discovery stopped");
+        if (doCompletion)
+            doCompletion([NSDictionary dictionaryWithDictionary:discovered], log, discoveryError);
+    }
+    log = nil;
+    udpSocket = nil;
+    discovered = nil;
+    tested = nil;
+    discoveryError = nil;
+    doHueFound = nil;
+    doCompletion = nil;
 }
 
 - (GCDAsyncUdpSocket *)createSocket {
   GCDAsyncUdpSocket *socket = [[GCDAsyncUdpSocket alloc] initWithDelegate:self delegateQueue:dispatch_get_main_queue()];
   NSError *error = nil;
-  
   if (![socket bindToPort:0 error:&error])
     WSLog(@"Error binding: %@", error.description);
   if (![socket beginReceiving:&error])
@@ -103,61 +158,56 @@
   return socket;
 }
 
-- (void)searchForHueAt:(NSURL *)url {
-  NSURLRequest *req = [NSURLRequest requestWithURL:url];
-  [self appendToLog:[NSString stringWithFormat:@"Searching for Hue controller at %@", url]];
-  
-  __weak typeof(self)wkSelf = self;
-  [[[NSURLSession sharedSession] dataTaskWithRequest:req completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
-    if ( error )
-    {
-      [wkSelf appendToLog:[NSString stringWithFormat:@"Error while searching for Hue Controller %@", error.localizedDescription]];
-      return;
-    }
-    
-    NSString *msg = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-    // If this string is found, then url == hue!
-    // JPR TODO: is this string accurate? seems fragile
-    if ([msg rangeOfString:@"Philips hue bridge 2012"].location != NSNotFound) {
-      [wkSelf appendToLog:[NSString stringWithFormat:@"Found hue at %@!", url.host]];
-      // JPR TODO: clean up
-      if ([wkSelf.delegate respondsToSelector:@selector(foundHueAt:discoveryLog:)]) {
-        if (!wkSelf.foundHue) {
-          [wkSelf.delegate foundHueAt:url.host discoveryLog:wkSelf.log];
-          wkSelf.foundHue = YES;
+#pragma mark - Block based, stateless discovery
+
+-(void)searchForHueAt:(NSURL*)aURL completion:(void(^_Nonnull)(NSString* host, NSString* mac, NSString* log, NSError* error))completion {
+    NSString* aLog = [NSString stringWithFormat:@"%@: Searching for Hue controller at %@\n", [NSDate date], aURL];
+    [[[NSURLSession sharedSession] dataTaskWithURL:aURL completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
+        if (error) {
+            completion(nil, nil, [aLog stringByAppendingFormat:@"%@: Error while searching for Hue controller %@\n", [NSDate date], error], error);
+            return;
         }
-      }
-    } else {
-      // Host is not a Hue
-      [wkSelf appendToLog:[NSString stringWithFormat:@"Host %@ is not a Hue", url.host]];
-    }
-  }] resume];
+        NSString* aMsg = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+        if ([aMsg rangeOfString:@"Philips hue bridge 20"].location != NSNotFound) {
+            // Extract serialNumber from aMsg into aHueMac...
+            NSString* aHueMac;
+            NSTextCheckingResult* aMatch;
+            if (aMatch = [[[NSRegularExpression regularExpressionWithPattern:@"<serialNumber>(.*?)</serialNumber>" options:0 error:nil] matchesInString:aMsg options:0 range:NSMakeRange(0, aMsg.length)] firstObject])
+                aHueMac = _MacAddressWithSeparators([aMsg substringWithRange:[aMatch rangeAtIndex:1]]);
+            // Found a Hue, report host and mac address (latter may be nil)...
+            completion(aURL.host, aHueMac, [aLog stringByAppendingFormat:@"%@: Found hue at %@ with id %@\n", [NSDate date], aURL.host, aHueMac], nil);
+        } else {
+            completion(nil, nil, [aLog stringByAppendingFormat:@"%@: Host %@ is not a Hue\n", [NSDate date], aURL.host], nil);
+        }
+    }] resume];
 }
 
 #pragma mark - GCDAsyncUdpSocketDelegate
 
 - (void)udpSocket:(GCDAsyncUdpSocket *)sock didReceiveData:(NSData *)data fromAddress:(NSData *)address withFilterContext:(id)filterContext {
-  NSString *msg = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-  if (msg) {
-    [self appendToLog:@"Received UDP data"];
-    //NSRegularExpression *reg = [[NSRegularExpression alloc] initWithPattern:@"LOCATION:(.*?)xml" options:0 error:nil];
-    NSRegularExpression *reg = [[NSRegularExpression alloc] initWithPattern:@"http:\\/\\/(.*?)description\\.xml" options:0 error:nil];
-    NSArray *matches = [reg matchesInString:msg options:0 range:NSMakeRange(0, msg.length)];
-    if (matches.count > 0) {
-      NSTextCheckingResult *result = matches[0];
-      NSString *matched = [msg substringWithRange:[result rangeAtIndex:0]];
-      NSURL *url = [NSURL URLWithString:matched];
-      [self appendToLog:@"Possibly found a Hue controller, verifying..."];
-      [self searchForHueAt:url];
+    NSString *msg = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+    if (msg) {
+        AppendLogStr(log, @"Received UDP data");
+        NSRegularExpression *reg = [[NSRegularExpression alloc] initWithPattern:@"http:\\/\\/(.*?)description\\.xml" options:0 error:nil];
+        NSArray *matches = [reg matchesInString:msg options:0 range:NSMakeRange(0, msg.length)];
+        if (matches.count > 0) {
+            NSTextCheckingResult *result = matches[0];
+            NSString *matched = [msg substringWithRange:[result rangeAtIndex:0]];
+            NSURL *url = [NSURL URLWithString:matched];
+            if (tested && ![tested containsObject:url.host]) {
+                AppendLogStr(log, @"Possibly found a Hue controller, verifying...");
+                [tested addObject:url.host];
+                [self searchForHueAt:url completion:^(NSString *aHost, NSString *aMac, NSString *aLog, NSError *aError) {
+                    log = [log stringByAppendingString:aLog];
+                    if (aHost && aMac && discovered && !discovered[aMac] && !aError) {
+                        discovered[aMac] = aHost;
+                        if (doHueFound)
+                            doHueFound(aHost, aMac);
+                    }
+                }];
+            }
+        }
     }
-  }
-}
-
-#pragma mark - Helpers
-
-- (void)appendToLog:(NSString *)message
-{
-  [self.log appendFormat:@"%@: %@\n", [NSDate date], message];
 }
 
 @end

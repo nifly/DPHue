@@ -23,14 +23,13 @@
 
 @implementation DPHueLight
 
-- (id)init
+- (id)initWithBridge:(DPHueBridge *)aBridge
 {
-  if ( self = [super init] )
-  {
-    [self performCommonInit];
-  }
-  
-  return self;
+    if (self = [super init]) {
+        [self performCommonInit];
+        _bridge = aBridge;
+    }
+    return self;
 }
 
 - (void)performCommonInit
@@ -63,51 +62,59 @@
 
 - (id)initWithCoder:(NSCoder *)coder
 {
-  if ( self = [super init] )
-  {
-    [self performCommonInit];
+    if (self = [super init])
+    {
+        [self performCommonInit];
+        _name = [coder decodeObjectForKey:@"name"];
+        _modelid = [coder decodeObjectForKey:@"modelid"];
+        _swversion = [coder decodeObjectForKey:@"swversion"];
+        _brightness = [coder decodeObjectForKey:@"brightness"];
+        _colorMode = [coder decodeObjectForKey:@"colorMode"];
+        _hue = [coder decodeObjectForKey:@"hue"];
+        _type = [coder decodeObjectForKey:@"bulbType"];
+        _on = [[coder decodeObjectForKey:@"on"] boolValue];
+        _xy = [coder decodeObjectForKey:@"xy"];
+        _colorTemperature = [coder decodeObjectForKey:@"colorTemperature"];
+        _alert = [coder decodeObjectForKey:@"alert"];
+        _saturation = [coder decodeObjectForKey:@"saturation"];
+        _number = [coder decodeObjectForKey:@"number"];
+        _host = [coder decodeObjectForKey:@"host"];
+        _username = [coder decodeObjectForKey:@"username"];
+    }
     
-    _name = [coder decodeObjectForKey:@"name"];
-    _modelid = [coder decodeObjectForKey:@"modelid"];
-    _swversion = [coder decodeObjectForKey:@"swversion"];
-    _brightness = [coder decodeObjectForKey:@"brightness"];
-    _colorMode = [coder decodeObjectForKey:@"colorMode"];
-    _hue = [coder decodeObjectForKey:@"hue"];
-    _type = [coder decodeObjectForKey:@"bulbType"];
-    _on = [[coder decodeObjectForKey:@"on"] boolValue];
-    _xy = [coder decodeObjectForKey:@"xy"];
-    _colorTemperature = [coder decodeObjectForKey:@"colorTemperature"];
-    _alert = [coder decodeObjectForKey:@"alert"];
-    _saturation = [coder decodeObjectForKey:@"saturation"];
-    _number = [coder decodeObjectForKey:@"number"];
-    _host = [coder decodeObjectForKey:@"host"];
-    _username = [coder decodeObjectForKey:@"username"];
-  }
-  
-  return self;
+    return self;
 }
 
 - (void)encodeWithCoder:(NSCoder *)coder
 {
-  [coder encodeObject:_name forKey:@"name"];
-  [coder encodeObject:_modelid forKey:@"modelid"];
-  [coder encodeObject:_swversion forKey:@"swversion"];
-  [coder encodeObject:_brightness forKey:@"brightness"];
-  [coder encodeObject:_colorMode forKey:@"colorMode"];
-  [coder encodeObject:_hue forKey:@"hue"];
-  [coder encodeObject:_type forKey:@"bulbType"];
-  [coder encodeObject:[NSNumber numberWithBool:self->_on] forKey:@"on"];
-  [coder encodeObject:_xy forKey:@"xy"];
-  [coder encodeObject:_colorTemperature forKey:@"colorTemperature"];
-  [coder encodeObject:_alert forKey:@"alert"];
-  [coder encodeObject:_saturation forKey:@"saturation"];
-  [coder encodeObject:_number forKey:@"number"];
-  [coder encodeObject:_host forKey:@"host"];
-  [coder encodeObject:_username forKey:@"username"];
+    [coder encodeObject:_name forKey:@"name"];
+    [coder encodeObject:_modelid forKey:@"modelid"];
+    [coder encodeObject:_swversion forKey:@"swversion"];
+    [coder encodeObject:_brightness forKey:@"brightness"];
+    [coder encodeObject:_colorMode forKey:@"colorMode"];
+    [coder encodeObject:_hue forKey:@"hue"];
+    [coder encodeObject:_type forKey:@"bulbType"];
+    [coder encodeObject:[NSNumber numberWithBool:self->_on] forKey:@"on"];
+    [coder encodeObject:_xy forKey:@"xy"];
+    [coder encodeObject:_colorTemperature forKey:@"colorTemperature"];
+    [coder encodeObject:_alert forKey:@"alert"];
+    [coder encodeObject:_saturation forKey:@"saturation"];
+    [coder encodeObject:_number forKey:@"number"];
+    [coder encodeObject:_host forKey:@"host"];
+    [coder encodeObject:_username forKey:@"username"];
 }
 
 
 #pragma mark - Setters that update pendingChanges
+
+NSNumber* _clampNumber(NSNumber* number, NSInteger low, NSInteger high) {
+    NSInteger val = number.integerValue;
+    if (val > high)
+        return @(high);
+    if (val < low)
+        return @(low);
+    return number;
+}
 
 - (void)setOn:(BOOL)on {
     _on = on;
@@ -117,14 +124,14 @@
 }
 
 - (void)setBrightness:(NSNumber *)brightness {
-    _brightness = brightness;
+    _brightness = (brightness = _clampNumber(brightness, 0, 255));
     self.pendingChanges[@"bri"] = brightness;
     if (!self.holdUpdates)
         [self write];
 }
 
 - (void)setHue:(NSNumber *)hue {
-    _hue = hue;
+    _hue = (hue = _clampNumber(hue, 0, 65535));
     self.pendingChanges[@"hue"] = hue;
     if (!self.holdUpdates)
         [self write];
@@ -139,7 +146,7 @@
 }
 
 - (void)setColorTemperature:(NSNumber *)colorTemperature {
-    _colorTemperature = colorTemperature;
+    _colorTemperature = (colorTemperature = _clampNumber(colorTemperature, 154, 500));
     self.pendingChanges[@"ct"] = colorTemperature;
     if (!self.holdUpdates)
         [self write];
@@ -155,7 +162,7 @@
 
 - (void)setSaturation:(NSNumber *)saturation {
     _saturation = saturation;
-    self.pendingChanges[@"sat"] = saturation;
+    self.pendingChanges[@"sat"] = (saturation = _clampNumber(saturation, 0, 255));
     if (!self.holdUpdates)
         [self write];
 }
@@ -163,18 +170,37 @@
 
 #pragma mark - Public API
 
-- (void)read
-{
-  NSURLRequest *request = [self requestForGettingLightState];
-  DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:request sender:self];
-  connection.completionBlock = ^(DPHueLight *sender, id json, NSError *err) {
-    if ( err )
-      return;
+- (void)alertLight {
+    id pendingChanges = [self.pendingChanges copy];
     
-    [sender parseLightStateGet:json];
-  };
-  
-  [connection start];
+    [self.pendingChanges removeAllObjects];
+    self.pendingChanges[@"alert"] = @"select";
+    
+    [self write];
+    
+    [self.pendingChanges addEntriesFromDictionary:pendingChanges];
+}
+
+- (void)readWithSuccess:(void(^)(BOOL success))onCompleted {
+    NSURLRequest *request = [self requestForGettingLightState];
+    DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:request sender:self];
+    connection.completionBlock = ^(DPHueLight *sender, id json, NSError *err) {
+        if (err) {
+            if (onCompleted)
+                onCompleted(NO);
+            return;
+        }
+        
+        [sender parseLightStateGet:json];
+        if (onCompleted)
+            onCompleted(YES);
+    };
+    
+    [connection start];
+}
+
+- (void)read {
+    [self readWithSuccess:nil];
 }
 
 - (void)writeAll {
@@ -232,8 +258,13 @@
 
 #pragma mark - HueAPIJsonParsingHueAPIRequestGeneration
 
-- (NSURL *)baseURL
-{
+- (NSString*)address {
+    NSAssert([self.username length], @"No username set");
+    NSAssert(self.number != nil, @"No light number set");
+    return [NSString stringWithFormat:@"/api/%@/lights/%@", self.username, self.number];
+}
+
+- (NSURL *)baseURL {
   NSAssert([self.host length], @"No host set");
   NSAssert([self.username length], @"No username set");
   NSAssert(self.number != nil, @"No light number set");
@@ -243,12 +274,8 @@
   return [NSURL URLWithString:basePath];
 }
 
-- (NSURLRequest *)requestForGettingLightState
-{
-  NSURL *url = [self baseURL];
-  
-  NSURLRequest *request = [NSURLRequest requestWithURL:url];
-  return request;
+- (NSURLRequest *)requestForGettingLightState {
+    return [NSURLRequest requestWithURL:[self baseURL]];;
 }
 
 - (NSURLRequest *)requestForSettingLightState:(NSDictionary *)state
