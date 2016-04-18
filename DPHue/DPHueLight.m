@@ -258,8 +258,13 @@ NSNumber* _clampNumber(NSNumber* number, NSInteger low, NSInteger high) {
 
 #pragma mark - HueAPIJsonParsingHueAPIRequestGeneration
 
-- (NSURL *)baseURL
-{
+- (NSString*)address {
+    NSAssert([self.username length], @"No username set");
+    NSAssert(self.number != nil, @"No light number set");
+    return [NSString stringWithFormat:@"/api/%@/lights/%@", self.username, self.number];
+}
+
+- (NSURL *)baseURL {
   NSAssert([self.host length], @"No host set");
   NSAssert([self.username length], @"No username set");
   NSAssert(self.number != nil, @"No light number set");
@@ -269,12 +274,8 @@ NSNumber* _clampNumber(NSNumber* number, NSInteger low, NSInteger high) {
   return [NSURL URLWithString:basePath];
 }
 
-- (NSURLRequest *)requestForGettingLightState
-{
-  NSURL *url = [self baseURL];
-  
-  NSURLRequest *request = [NSURLRequest requestWithURL:url];
-  return request;
+- (NSURLRequest *)requestForGettingLightState {
+    return [NSURLRequest requestWithURL:[self baseURL]];;
 }
 
 - (NSURLRequest *)requestForSettingLightState:(NSDictionary *)state

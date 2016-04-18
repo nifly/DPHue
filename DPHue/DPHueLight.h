@@ -105,6 +105,7 @@
 
 @property (nonatomic, copy) NSString *username;
 @property (nonatomic, copy) NSString *host;
+@property (nonatomic, readonly) NSString* address;
 
 @property (nonatomic, weak) DPHueBridge *bridge;
 
