@@ -63,6 +63,7 @@ NSString* _MacAddressWithSeparators(NSString* aMacAddress) {
     discovered = [NSMutableDictionary new];
     doHueFound = hueFound;
     doCompletion = completion;
+    __block DPHueDiscover* sSelf = self;
    
     AppendLogStr(log, @"Starting discovery, via meethue.com API first");
     AppendLogStr(log, @"Making request to https://www.meethue.com/api/nupnp");
@@ -107,13 +108,15 @@ NSString* _MacAddressWithSeparators(NSString* aMacAddress) {
             }
         }
         // If we have not initiated an SSDP search, then stop discovery at this point...
-        if (!udpSocket)
+        if (!udpSocket) {
             [self stopDiscovery];
+            sSelf = nil;
+        }
     };
     [connection start];
     
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(duration * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        [self stopDiscovery];
+        [sSelf stopDiscovery];
     });
 }
 
