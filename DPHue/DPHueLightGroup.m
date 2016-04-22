@@ -154,7 +154,11 @@
     [sender parseGroupStateGet:json];
   };
   
-  [connection start];
+    if (_bridge) {
+        [_bridge queueCommand:connection maxPerSecond:1];
+    } else {
+        [connection start];
+    }
 }
 
 - (void)writeAll
