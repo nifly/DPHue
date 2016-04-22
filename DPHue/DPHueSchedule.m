@@ -111,7 +111,11 @@
         [sender readFromJSONDictionary:json];
     };
     
-    [connection start];
+    if (_bridge) {
+        [_bridge queueCommand:connection maxPerSecond:10];
+    } else {
+        [connection start];
+    }
 }
 
 - (void)readFromJSONDictionary:(id)d {

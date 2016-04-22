@@ -8,6 +8,7 @@
 //  https://github.com/danparsons/DPHue
 
 #import "DPHueLight.h"
+#import "DPHueBridge.h"
 #import "DPJSONConnection.h"
 #import "WSLog.h"
 
@@ -251,8 +252,12 @@ NSNumber* _clampNumber(NSNumber* number, NSInteger low, NSInteger high) {
     
     [sender parseLightStateSet:json];
   };
-  
-  [connection start];
+   
+    if (_bridge) {
+        [_bridge queueCommand:connection maxPerSecond:10];
+    } else {
+        [connection start];
+    }
 }
 
 

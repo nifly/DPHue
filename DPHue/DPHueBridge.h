@@ -11,7 +11,7 @@
 
 @class DPHueLight;
 @class DPHueLightGroup;
-
+@class DPJSONConnection;
 
 @interface DPHueBridge : NSObject <NSCoding>
 
@@ -187,6 +187,15 @@
           </ul>
  */
 - (void)updateGroup:(DPHueLightGroup *)group withName:(NSString *)name lightIds:(NSArray *)lightIds onCompletion:(void (^)(BOOL success, DPHueLightGroup* group))onCompletionBlock;
+
+/**
+ Queues commands to the bridge; ensures that commands are not delivered too fast to the hue bridge. A bridge can handle about 10 @p DPHueLight commands per second, and about 1 @p DPHueLightGroup command per second.
+ @param aCommand
+        @p DPJSONConnection containing the command request that should be sent to the bridge.
+ @param aMaxPerSecond
+        The number of commands per second (of the same kind as @p aCommand), that the bridge can handle according to specifications.
+ */
+- (void)queueCommand:(DPJSONConnection*)aCommand maxPerSecond:(double)aMaxPerSecond;
 
 @end
 

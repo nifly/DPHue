@@ -15,6 +15,12 @@
 #import "WSLog.h"
 #import <CocoaAsyncSocket/GCDAsyncSocket.h>
 
+typedef NSString DPHueCommandQueueKey;
+
+const DPHueCommandQueueKey* DPHueCommandQueueKeyCommand = @"DPHueCommandQueueKeyCommand";
+const DPHueCommandQueueKey* DPHueCommandQueueKeyMaxPerSecond = @"DPHueCommandQueueKeyMaxPerSecond";
+const DPHueCommandQueueKey* DPHueCommandQueueKeyTTL = @"DPHueCommandQueueKeyTTL";
+const DPHueCommandQueueKey* DPHueCommandQueueKeyExpire = @"DPHueCommandQueueKeyExpire";
 
 @interface DPHueBridge () <GCDAsyncSocketDelegate>
 
@@ -26,7 +32,9 @@
 @end
 
 
-@implementation DPHueBridge
+@implementation DPHueBridge {
+    NSArray* commandQueue;
+}
 
 - (id)initWithHueHost:(NSString *)host generatedUsername:(NSString *)generatedUsername
 {
@@ -275,6 +283,75 @@
   }
   
   [conn start];
+}
+
+- (void)queueCommand:(DPJSONConnection*)aCommand maxPerSecond:(double)aMaxPerSecond {
+    [self queueCommand:@{DPHueCommandQueueKeyCommand: aCommand,
+                         DPHueCommandQueueKeyMaxPerSecond: @(aMaxPerSecond)}];
+}
+
+- (void)queueCommand:(NSDictionary<DPHueCommandQueueKey*, id>*)aCommandData {
+    [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(queueCommand:) object:nil];
+    // Initiate state...
+    commandQueue = commandQueue ?: @[];
+    NSDate* aCurrent = [NSDate date];
+    CGFloat aCongestion = 0;
+    NSInteger aExpired = 0;
+    NSInteger aCompleted = 0;
+    NSDate* aLastExpired;
+    // Get number of expired and completed commands in the command queue, also evaluate congestion value on the completed commands that have not yet expired, and keep track of the expiration time of the last non expired command...
+    for (NSDictionary<DPHueCommandQueueKey*, id>* aDict in commandQueue) {
+        NSDate* aExpire = aDict[DPHueCommandQueueKeyExpire];
+        if (!aExpire)
+            break;
+        if ((aCompleted == 0) && ([aExpire compare:aCurrent] == NSOrderedAscending)) {
+            aExpired++;
+        } else {
+            aCompleted++;
+            aLastExpired = aExpire;
+            aCongestion += [aDict[DPHueCommandQueueKeyTTL] doubleValue];
+        }
+    }
+    // Setup aProcessedCommands & aWaiting; aProcessedCommands holds data about commands that have been sent to the hue, aWaiting holds data for commands that is waiting to be sent...
+    NSMutableArray* aProcessedCommands = [[commandQueue subarrayWithRange:NSMakeRange(aExpired, aCompleted)] mutableCopy];
+    NSMutableArray* aWaiting = [[commandQueue subarrayWithRange:NSMakeRange(aExpired + aCompleted, commandQueue.count - aExpired - aCompleted)] mutableCopy];
+    // If aCommandData is set, add it to the aWaiting queue...
+    if (aCommandData)
+        [aWaiting addObject:aCommandData];
+    // While aCongestion is less than one, the bridge should be able to accept additional commands...
+    if (aCongestion < 1.0f) {
+        for (NSDictionary<DPHueCommandQueueKey*, id>* aDict in aWaiting) {
+            // Calculate TTL (seconds) from MPS...
+            CGFloat aMPS = [aDict[DPHueCommandQueueKeyMaxPerSecond] doubleValue];
+            CGFloat aTTL = aMPS ? 1 / aMPS : 0;
+            // Add command data to the processed list, also update aLastExpired with the current expiration time, which is set to previously set aLastExpired + TTL...
+            [aProcessedCommands addObject:@{DPHueCommandQueueKeyTTL: @(aTTL),
+                                            DPHueCommandQueueKeyExpire: (aLastExpired = [(aLastExpired ?: aCurrent) dateByAddingTimeInterval:(NSTimeInterval)aTTL])}];
+            // Send the command...
+            [(DPJSONConnection*)(aDict[DPHueCommandQueueKeyCommand]) start];
+            // Update congestion value based on the TTL value...
+            if ((aCongestion += aTTL) >= 1.0f)
+                break;
+        }
+    }
+    // aSendCount contains the number of commands that was sent...
+    NSInteger aSendCount = aProcessedCommands.count - aCompleted;
+    // Are there any changes that requires the commandQueue to be updated?
+    if (aExpired || aSendCount || aCommandData) {
+        [aProcessedCommands addObjectsFromArray:[aWaiting subarrayWithRange:NSMakeRange(aSendCount, aWaiting.count-aSendCount)]];
+        commandQueue = [NSArray arrayWithArray:aProcessedCommands];
+    }
+    // If the bridge is considered to be congested and there are commands waiting to be sent, we should evaluate when we expect the congestion to drop below 1, and then trigger this function at that time...
+    if (aCongestion >= 1.0f && (aWaiting.count > aSendCount)) {
+        aLastExpired = nil;
+        for (NSDictionary<DPHueCommandQueueKey*, id>* aDict in commandQueue) {
+            aLastExpired = aDict[DPHueCommandQueueKeyExpire];
+            if ((aCongestion -= [aDict[DPHueCommandQueueKeyTTL] doubleValue]) < 1.0)
+                break;
+        }
+        if (aLastExpired)
+            [self performSelector:@selector(queueCommand:) withObject:nil afterDelay:[aLastExpired timeIntervalSinceDate:aCurrent]];
+    }
 }
 
 #pragma mark - GCDAsyncSocketDelegate

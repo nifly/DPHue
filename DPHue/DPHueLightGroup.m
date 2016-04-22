@@ -9,7 +9,7 @@
 
 #import "DPHueLightGroup.h"
 #import "DPJSONConnection.h"
-
+#import "DPHueBridge.h"
 
 @interface DPHueLightGroup ()
 
@@ -213,7 +213,11 @@
     [sender parseGroupStateSet:json];
   };
   
-  [connection start];
+    if (_bridge) {
+        [_bridge queueCommand:connection maxPerSecond:1];
+    } else {
+        [connection start];
+    }
 }
 
 - (NSString *)description
