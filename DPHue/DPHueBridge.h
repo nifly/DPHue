@@ -98,7 +98,7 @@
  */
 - (void)registerDevice;
 
-- (void)registerDeviceWithCompletion:(void(^_Nullable)(DPHueBridge* sender, id json, NSError* error))completion;
+- (void)registerDeviceWithCompletion:(void(^_Nullable)(DPHueBridge* sender, id _Nullable json, NSError* _Nullable error))completion;
 
 /**
  Triggers the Touchlink feature in a Hue controller, which causes it to
