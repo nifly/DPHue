@@ -36,7 +36,7 @@ const DPHueCommandQueueKey* DPHueCommandQueueKeyExpire = @"DPHueCommandQueueKeyE
     NSArray* commandQueue;
 }
 
-- (id)initWithHueHost:(NSString *)host generatedUsername:(NSString *)generatedUsername
+- (id)initWithHueHost:(NSString *)host generatedUsername:(NSString * _Nullable)generatedUsername
 {
   if ( self = [super init] )
   {

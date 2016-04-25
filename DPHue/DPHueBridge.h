@@ -22,12 +22,12 @@
  The API username DPHueBridge will use when communicating with the Hue controller.
  The generatedUsername is created by the Hue bridge when linking the device with the bridge.
  */
-@property (nonatomic, copy) NSString *generatedUsername;
+@property (nonatomic, copy) NSString * _Nullable generatedUsername;
 
 /**
  legacyUsername, may no longer be accepted by new bridges.
  */
-@property (nonatomic, copy) NSString *legacyUsername;
+@property (nonatomic, copy) NSString * _Nullable legacyUsername;
 
 /// The hostname (or IP address) that DPHueBridge will talk to.
 @property (nonatomic, copy) NSString *host;
@@ -76,7 +76,7 @@
  *          An md5 string from a previously successful call to @p [DPHueBridge registerDevice].
  *          If this is your first time interacting with the controller, use @p nil.
  */
-- (id)initWithHueHost:(NSString *)host generatedUsername:(NSString *)generatedUsername;
+- (id)initWithHueHost:(NSString *)host generatedUsername:(NSString * _Nullable)generatedUsername;
 
 /**
  Download the complete state of the Hue controller, including the state
