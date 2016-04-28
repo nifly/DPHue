@@ -43,11 +43,11 @@ NSString* _MacAddressWithSeparators(NSString* aMacAddress) {
     void (^doCompletion)(NSDictionary* discovered, NSString* log, NSError* error);
 }
 
-+ (instancetype)discoverWithDuration:(NSInteger)duration hueFound:(void(^_Nullable)(NSString* host, NSString* mac))hueFound completion:(void(^_Nullable)(NSDictionary* discovered, NSString* log, NSError* error))completion {
++ (instancetype)discoverWithDuration:(NSInteger)duration hueFound:(void(^_Nullable)(NSString* host, NSString* mac))hueFound completion:(void(^_Nullable)(NSDictionary* discovered, NSString* _Nullable log, NSError* _Nullable error))completion {
     return [[DPHueDiscover alloc] initWithDuration:duration hueFound:hueFound completion:completion];
 }
 
-- (instancetype)initWithDuration:(NSInteger)duration hueFound:(void(^_Nullable)(NSString* host, NSString* mac))hueFound completion:(void(^_Nullable)(NSDictionary* discovered, NSString* log, NSError* error))completion {
+- (instancetype)initWithDuration:(NSInteger)duration hueFound:(void(^_Nullable)(NSString* host, NSString* mac))hueFound completion:(void(^_Nullable)(NSDictionary* discovered, NSString* _Nullable log, NSError* _Nullable error))completion {
     self = [super init];
     if (self) {
         [self discoverHueForDuration:duration hueFound:hueFound completion:completion];

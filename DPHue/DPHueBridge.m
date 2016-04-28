@@ -36,7 +36,7 @@ const DPHueCommandQueueKey* DPHueCommandQueueKeyExpire = @"DPHueCommandQueueKeyE
     NSArray* commandQueue;
 }
 
-- (id)initWithHueHost:(NSString *)host generatedUsername:(NSString *)generatedUsername
+- (id)initWithHueHost:(NSString *)host generatedUsername:(NSString * _Nullable)generatedUsername
 {
   if ( self = [super init] )
   {
@@ -143,7 +143,7 @@ const DPHueCommandQueueKey* DPHueCommandQueueKeyExpire = @"DPHueCommandQueueKeyE
     [self registerDeviceWithCompletion:nil];
 }
 
-- (void)registerDeviceWithCompletion:(void(^_Nullable)(DPHueBridge* sender, id json, NSError* error))completion {
+- (void)registerDeviceWithCompletion:(void(^_Nullable)(DPHueBridge* sender, id _Nullable json, NSError* _Nullable error))completion {
     DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:[self requestForRegisteringDevice:self.deviceType] sender:self];
     connection.completionBlock = ^(DPHueBridge *sender, id json, NSError *err) {
         if (!err)
