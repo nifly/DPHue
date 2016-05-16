@@ -168,6 +168,9 @@ NSNumber* _clampNumber(NSNumber* number, NSInteger low, NSInteger high) {
         [self write];
 }
 
+- (BOOL)hasPendingChanges {
+    return self.pendingChanges.count > 0;
+}
 
 #pragma mark - Public API
 
@@ -208,7 +211,7 @@ NSNumber* _clampNumber(NSNumber* number, NSInteger low, NSInteger high) {
     [self readWithSuccess:nil];
 }
 
-- (void)writeAll {
+- (void)writeAllWithCompletionHandler:(void (^ _Nullable )(NSError * _Nullable))onCompleted {
     if (!self.on) {
         // If bulb is off, it forbids changes, so send none
         // except to turn it off
@@ -231,11 +234,14 @@ NSNumber* _clampNumber(NSNumber* number, NSInteger low, NSInteger high) {
     if ([self.colorMode isEqualToString:@"ct"]) {
         self.pendingChanges[@"ct"] = self.colorTemperature;
     }
-    [self write];
+    [self writeWithCompletionHandler:onCompleted];
 }
 
-- (void)write
-{
+- (void)writeAll {
+    [self writeAllWithCompletionHandler:nil];
+}
+
+- (void)writeWithCompletionHandler:(void(^ _Nullable )(NSError* _Nullable error))onCompleted {
   if (!self.pendingChanges.count)
     return;
   
@@ -251,6 +257,10 @@ NSNumber* _clampNumber(NSNumber* number, NSInteger low, NSInteger high) {
 
   DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:request sender:self];
   connection.completionBlock = ^(DPHueLight *sender, id json, NSError *err) {
+    if (onCompleted) {
+      onCompleted(err);
+    }
+
     if ( err )
       return;
     
@@ -262,6 +272,10 @@ NSNumber* _clampNumber(NSNumber* number, NSInteger low, NSInteger high) {
     } else {
         [connection start];
     }
+}
+
+- (void)write {
+    [self writeWithCompletionHandler:nil];
 }
 
 
