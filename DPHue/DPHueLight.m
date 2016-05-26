@@ -128,15 +128,15 @@ NSNumber* _clampNumber(NSNumber* number, NSInteger low, NSInteger high) {
 }
 
 - (void)setBrightness:(NSNumber *)brightness {
-    _brightness = (brightness = _clampNumber(brightness, 0, 255));
-    self.pendingChanges[@"bri"] = brightness;
+    _brightness = _clampNumber(brightness, 0, 255);
+    self.pendingChanges[@"bri"] = _brightness;
     if (!self.holdUpdates)
         [self write];
 }
 
 - (void)setHue:(NSNumber *)hue {
-    _hue = (hue = _clampNumber(hue, 0, 65535));
-    self.pendingChanges[@"hue"] = hue;
+    _hue = _clampNumber(hue, 0, 65535);
+    self.pendingChanges[@"hue"] = _hue;
     if (!self.holdUpdates)
         [self write];
 }
@@ -150,8 +150,8 @@ NSNumber* _clampNumber(NSNumber* number, NSInteger low, NSInteger high) {
 }
 
 - (void)setColorTemperature:(NSNumber *)colorTemperature {
-    _colorTemperature = (colorTemperature = _clampNumber(colorTemperature, 154, 500));
-    self.pendingChanges[@"ct"] = colorTemperature;
+    _colorTemperature = _clampNumber(colorTemperature, 154, 500);
+    self.pendingChanges[@"ct"] = _colorTemperature;
     if (!self.holdUpdates)
         [self write];
 }
@@ -165,8 +165,8 @@ NSNumber* _clampNumber(NSNumber* number, NSInteger low, NSInteger high) {
 }
 
 - (void)setSaturation:(NSNumber *)saturation {
-    _saturation = saturation;
-    self.pendingChanges[@"sat"] = (saturation = _clampNumber(saturation, 0, 255));
+    _saturation = _clampNumber(saturation, 0, 255);
+    self.pendingChanges[@"sat"] = _saturation;
     if (!self.holdUpdates)
         [self write];
 }
