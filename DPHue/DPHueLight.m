@@ -35,8 +35,11 @@
 
 - (void)performCommonInit
 {
-  self.holdUpdates = YES;
-  self.pendingChanges = [NSMutableDictionary new];
+  _number = @-1;
+  _username = @"";
+  _host = @"";
+  _holdUpdates = YES;
+  _pendingChanges = [NSMutableDictionary new];
 }
 
 - (NSString *)description {

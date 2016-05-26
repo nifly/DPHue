@@ -97,7 +97,7 @@
 @property (nonatomic, readonly, copy) NSString* _Nullable type;
 
 /// The number of the lamp, assigned by the controller.
-@property (nonatomic, strong) NSNumber* _Nullable number;
+@property (nonatomic, strong) NSNumber* _Nonnull number;
 
 /// Lamp model ID.
 @property (nonatomic, readonly, copy) NSString* _Nullable modelid;
@@ -105,9 +105,9 @@
 
 #pragma mark - Properties you can probably ignore
 
-@property (nonatomic, copy) NSString* _Nullable username;
-@property (nonatomic, copy) NSString* _Nullable host;
-@property (nonatomic, readonly) NSString* _Nullable address;
+@property (nonatomic, copy) NSString* _Nonnull username;
+@property (nonatomic, copy) NSString* _Nonnull host;
+@property (nonatomic, readonly) NSString* _Nonnull address;
 
 @property (nonatomic, weak) DPHueBridge *bridge;
 
