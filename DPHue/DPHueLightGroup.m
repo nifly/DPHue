@@ -10,6 +10,7 @@
 #import "DPHueLightGroup.h"
 #import "DPJSONConnection.h"
 #import "DPHueBridge.h"
+#import "NSNumber+Clamp.h"
 
 @interface DPHueLightGroup ()
 
@@ -95,16 +96,16 @@
 
 - (void)setBrightness:(NSNumber *)brightness
 {
-  _brightness = brightness;
-  self.pendingChanges[@"bri"] = brightness;
+  _brightness = [brightness clampFrom: @0 to: @255];
+  self.pendingChanges[@"bri"] = _brightness;
   if (!self.holdUpdates)
     [self write];
 }
 
 - (void)setHue:(NSNumber *)hue
 {
-  _hue = hue;
-  self.pendingChanges[@"hue"] = hue;
+  _hue = [hue clampFrom: @0 to: @65535];
+  self.pendingChanges[@"hue"] = _hue;
   if (!self.holdUpdates)
     [self write];
 }
@@ -119,8 +120,8 @@
 
 - (void)setColorTemperature:(NSNumber *)colorTemperature
 {
-  _colorTemperature = colorTemperature;
-  self.pendingChanges[@"ct"] = colorTemperature;
+  _colorTemperature = [colorTemperature clampFrom: @154 to: @500];
+  self.pendingChanges[@"ct"] = _colorTemperature;
   if (!self.holdUpdates)
     [self write];
 }
@@ -135,8 +136,8 @@
 
 - (void)setSaturation:(NSNumber *)saturation
 {
-  _saturation = saturation;
-  self.pendingChanges[@"sat"] = saturation;
+  _saturation = [saturation clampFrom: @0 to:@255];
+  self.pendingChanges[@"sat"] = _saturation;
   if (!self.holdUpdates)
     [self write];
 }
