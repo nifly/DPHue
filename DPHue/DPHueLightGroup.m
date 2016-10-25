@@ -141,6 +141,10 @@
     [self write];
 }
 
+- (BOOL)hasPendingChanges {
+    return self.pendingChanges.count > 0;
+}
+
 #pragma mark - Public API
 
 - (void)read
@@ -161,7 +165,7 @@
     }
 }
 
-- (void)writeAll
+- (void)writeAllWithCompletionHandler:(void (^ _Nullable )(NSError * _Nullable))completion
 {
   if (!self.on)
   {
@@ -191,10 +195,14 @@
     self.pendingChanges[@"ct"] = self.colorTemperature;
   }
   
-  [self write];
+  [self writeWithCompletionHandler:completion];
 }
 
-- (void)write
+- (void)writeAll {
+    [self writeAllWithCompletionHandler:nil];
+}
+
+- (void)writeWithCompletionHandler:(void(^ _Nullable )(NSError* _Nullable error))completion
 {
   if (!self.pendingChanges.count)
     return;
@@ -211,6 +219,9 @@
   
   DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:request sender:self];
   connection.completionBlock = ^(DPHueLightGroup *sender, id json, NSError *err) {
+    if (completion) {
+      completion(err);
+    }
     if ( err )
       return;
     
@@ -223,6 +234,11 @@
         [connection start];
     }
 }
+
+- (void)write {
+    [self writeWithCompletionHandler:nil];
+}
+
 
 - (NSString *)description
 {
