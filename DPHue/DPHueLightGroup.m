@@ -359,7 +359,7 @@
   {
     NSString *idStr = result[@"success"][@"id"];
     NSError *error = nil;
-    NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:@"^/groups/(\\d+)$"
+    NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:@"^(?:/groups/)?(\\d+)$"
                                                                            options:NSRegularExpressionCaseInsensitive
                                                                              error:&error];
     NSTextCheckingResult *match;
