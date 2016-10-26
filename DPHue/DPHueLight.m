@@ -252,14 +252,23 @@
 
   DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:request sender:self];
   connection.completionBlock = ^(DPHueLight *sender, id json, NSError *err) {
-    if (onCompleted) {
-      onCompleted(err);
-    }
-
-    if ( err )
+    if ( err ) {
+      if (onCompleted) {
+        onCompleted(err);
+      }
       return;
+    }
     
     [sender parseLightStateSet:json];
+
+    if (onCompleted) {
+      if (self.writeSuccess) {
+        onCompleted(nil);
+      }
+      else {
+        onCompleted([NSError errorWithDomain:@"DPHue" code:1 userInfo:@{NSLocalizedDescriptionKey: self.writeMessage}]);
+      }
+    }
   };
    
     if (_bridge) {
