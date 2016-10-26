@@ -429,7 +429,6 @@
   if (errorFound)
   {
     _writeSuccess = NO;
-    NSLog(@"Error writing values!\n%@", _writeMessage);
   }
   else
   {
