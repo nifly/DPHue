@@ -159,6 +159,16 @@
       }
       return;
     }
+
+    if ([json isKindOfClass:[NSArray class]]) {
+      NSString *errorDescription = ((NSArray*)json).firstObject[@"error"][@"description"];
+      if (errorDescription) {
+        if (completion) {
+          completion([NSError errorWithDomain:@"DPHue" code:5 userInfo:@{NSLocalizedDescriptionKey: errorDescription}]);
+        }
+        return;
+      }
+    }
     
     [sender parseGroupStateGet:json];
     if (completion) {
