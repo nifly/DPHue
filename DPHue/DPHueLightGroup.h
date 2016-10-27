@@ -101,6 +101,9 @@
 #pragma mark - Methods
 
 /// Re-download & parse controller's state for this particular group
+- (void)readWithCompletionHandler:(void(^ _Nullable )(NSError* _Nullable error))completion;
+
+/// Re-download & parse controller's state for this particular group
 - (void)read;
 
 /// Write only pending changes to controller

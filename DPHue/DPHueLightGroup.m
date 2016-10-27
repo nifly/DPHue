@@ -148,15 +148,22 @@
 
 #pragma mark - Public API
 
-- (void)read
+- (void)readWithCompletionHandler:(void(^ _Nullable )(NSError* _Nullable error))completion
 {
   NSURLRequest *request = [self requestForGettingGroupState];
   DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:request sender:self];
   connection.completionBlock = ^(DPHueLightGroup *sender, id json, NSError *err) {
-    if ( err )
+    if ( err ) {
+      if (completion) {
+        completion(err);
+      }
       return;
+    }
     
     [sender parseGroupStateGet:json];
+    if (completion) {
+      completion(nil);
+    }
   };
   
     if (_bridge) {
@@ -164,6 +171,11 @@
     } else {
         [connection start];
     }
+}
+
+- (void)read
+{
+    [self readWithCompletionHandler:nil];
 }
 
 - (void)writeAllWithCompletionHandler:(void (^ _Nullable )(NSError * _Nullable))completion

@@ -116,7 +116,7 @@
 - (void)alertLight;
 
 /// Re-download & parse controller's state for this particular light
-- (void)readWithSuccess:(void(^)(BOOL success))onCompleted;
+- (void)readWithCompletionHandler:(void(^ _Nullable )(NSError* _Nullable error))completion;
 
 /// Re-download & parse controller's state for this particular light
 - (void)read;
