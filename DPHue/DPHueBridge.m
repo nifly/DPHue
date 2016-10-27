@@ -252,7 +252,13 @@ const DPHueCommandQueueKey* DPHueCommandQueueKeyExpire = @"DPHueCommandQueueKeyE
       }
       
       [group parseGroupCreation:json];
-      onCompletionBlock( YES, group);
+      if (group.number) {
+        group.lightIds = lightIds;
+        onCompletionBlock(YES, group);
+      }
+      else {
+        onCompletionBlock(NO, nil);
+      }
     };
   }
   
