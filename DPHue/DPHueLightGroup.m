@@ -195,7 +195,7 @@
     // If bulb is off, it forbids changes, so send none
     // except to turn it off
     self.pendingChanges[@"on"] = [NSNumber numberWithBool:self.on];
-    [self write];
+    [self writeWithCompletionHandler:completion];
     return;
   }
   

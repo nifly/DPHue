@@ -216,12 +216,12 @@
     [self readWithCompletionHandler:nil];
 }
 
-- (void)writeAllWithCompletionHandler:(void (^ _Nullable )(NSError * _Nullable))onCompleted {
+- (void)writeAllWithCompletionHandler:(void (^ _Nullable )(NSError * _Nullable))completion {
     if (!self.on) {
         // If bulb is off, it forbids changes, so send none
         // except to turn it off
         self.pendingChanges[@"on"] = [NSNumber numberWithBool:self.on];
-        [self write];
+        [self writeWithCompletionHandler:completion];
         return;
     }
     self.pendingChanges[@"on"] = [NSNumber numberWithBool:self.on];
@@ -239,7 +239,7 @@
     if ([self.colorMode isEqualToString:@"ct"]) {
         self.pendingChanges[@"ct"] = self.colorTemperature;
     }
-    [self writeWithCompletionHandler:onCompleted];
+    [self writeWithCompletionHandler:completion];
 }
 
 - (void)writeAll {
