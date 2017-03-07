@@ -155,15 +155,15 @@
           <br />
           The completion block takes two parameters:
           <ul>
-          <li>error<br />
-                Holds the error, if any
-          </li>
           <li>group<br />
                 The resultant group, if created (i.e. no error occurred)
           </li>
+          <li>error<br />
+            Holds the error, if any
+          </li>
           </ul>
  */
-- (void)createGroupWithName:(NSString *)name lightIds:(NSArray *)lightIds onCompletion:(void (^)(NSError* _Nullable success, DPHueLightGroup* _Nullable group))onCompletionBlock;
+- (void)createGroupWithName:(NSString *)name lightIds:(NSArray *)lightIds onCompletion:(void (^ _Nullable)(DPHueLightGroup* _Nullable group, NSError* _Nullable error))onCompletionBlock;
 
 /**
  Update the given group on the controller.
@@ -186,7 +186,7 @@
           </li>
           </ul>
  */
-- (void)updateGroup:(DPHueLightGroup *)group withName:(NSString *)name lightIds:(NSArray *)lightIds onCompletion:(void (^)(BOOL success, DPHueLightGroup* group))onCompletionBlock;
+- (void)updateGroup:(DPHueLightGroup *)group withName:(NSString *)name lightIds:(NSArray *)lightIds onCompletion:(void (^ _Nullable)(DPHueLightGroup* _Nullable group, NSError* _Nullable error))onCompletionBlock;
 
 /**
  Queues commands to the bridge; ensures that commands are not delivered too fast to the hue bridge. A bridge can handle about 10 @p DPHueLight commands per second, and about 1 @p DPHueLightGroup command per second.

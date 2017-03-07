@@ -233,7 +233,7 @@ const DPHueCommandQueueKey* DPHueCommandQueueKeyExpire = @"DPHueCommandQueueKeyE
   return nil;
 }
 
-- (void)createGroupWithName:(NSString *)name lightIds:(NSArray *)lightIds onCompletion:(void (^)(NSError* _Nullable success, DPHueLightGroup* _Nullable group))onCompletionBlock
+- (void)createGroupWithName:(NSString *)name lightIds:(NSArray *)lightIds onCompletion:(void (^)(DPHueLightGroup* _Nullable group, NSError* _Nullable error))onCompletionBlock
 {
   // JPR TODO: handle lights being off during creation
   
@@ -242,28 +242,25 @@ const DPHueCommandQueueKey* DPHueCommandQueueKeyExpire = @"DPHueCommandQueueKeyE
   group.host = self.host;
   NSURLRequest *request = [group requestForCreatingWithName:name lightIds:lightIds];
   DPJSONConnection *conn = [[DPJSONConnection alloc] initWithRequest:request sender:self];
-  if ( onCompletionBlock )
-  {
+  if ( onCompletionBlock ) {
     conn.completionBlock = ^(DPHueBridge *sender, id json, NSError *err) {
-      if ( err )
-      {
-        onCompletionBlock( err, nil );
+      if ( err ) {
+        onCompletionBlock(nil, err);
         return;
       }
 
       NSString *errorDescription = ((NSDictionary *)[json firstObject])[@"error"][@"description"];
       if (errorDescription) {
-        onCompletionBlock([NSError errorWithDomain:@"DPHue" code:3 userInfo:@{NSLocalizedDescriptionKey: errorDescription}], nil);
+        onCompletionBlock(nil, [NSError errorWithDomain:@"DPHue" code:3 userInfo:@{NSLocalizedDescriptionKey: errorDescription}]);
         return;
       }
       
       [group parseGroupCreation:json];
       if (group.number) {
         group.lightIds = lightIds;
-        onCompletionBlock(nil, group);
-      }
-      else {
-        onCompletionBlock([NSError errorWithDomain:@"DPHue" code:4 userInfo:@{NSLocalizedDescriptionKey: @"Could not find group id in response"}], nil);
+        onCompletionBlock(group, nil);
+      } else {
+        onCompletionBlock(nil, [NSError errorWithDomain:@"DPHue" code:4 userInfo:@{NSLocalizedDescriptionKey: @"Could not find group id in response"}]);
       }
     };
   }
@@ -271,8 +268,7 @@ const DPHueCommandQueueKey* DPHueCommandQueueKeyExpire = @"DPHueCommandQueueKeyE
   [conn start];
 }
 
-- (void)updateGroup:(DPHueLightGroup *)group withName:(NSString *)name lightIds:(NSArray *)lightIds onCompletion:(void (^)(BOOL success, DPHueLightGroup *group))onCompletionBlock
-{
+- (void)updateGroup:(DPHueLightGroup *)group withName:(NSString *)name lightIds:(NSArray *)lightIds onCompletion:(void (^ _Nullable)(DPHueLightGroup* _Nullable group, NSError* _Nullable error))onCompletionBlock {
   // JPR TODO: handle lights being off during creation
   
   if ( !name )
@@ -280,17 +276,15 @@ const DPHueCommandQueueKey* DPHueCommandQueueKeyExpire = @"DPHueCommandQueueKeyE
   
   NSURLRequest *request = [group requestForUpdatingWithName:name lightIds:lightIds];
   DPJSONConnection *conn = [[DPJSONConnection alloc] initWithRequest:request sender:self];
-  if ( onCompletionBlock )
-  {
+  if ( onCompletionBlock ) {
     conn.completionBlock = ^(DPHueBridge *sender, id json, NSError *err) {
-      if ( err )
-      {
-        onCompletionBlock( NO, nil );
+      if ( err ) {
+        onCompletionBlock(nil, err);
         return;
       }
       
       [group parseGroupUpdate:json];
-      onCompletionBlock( YES, group);
+      onCompletionBlock(group, nil);
     };
   }
   
