@@ -86,35 +86,26 @@ const DPHueCommandQueueKey* DPHueCommandQueueKeyExpire = @"DPHueCommandQueueKeyE
   // As each DPHueLight and DPHueLightGroup maintains its own access URLs, they
   // too must be updated if URLs change.
   for (DPHueLight *light in self.lights)
-  {
     light.username = generatedUsername;
-  }
   
   for (DPHueLightGroup *group in self.groups)
-  {
     group.username = generatedUsername;
-  }
 }
 
 - (void)setHost:(NSString *)host
 {
   _host = host;
-  
+
   // As each DPHueLight and DPHueLightGroup maintains its own access URLs, they
   // too must be updated if URLs change.
   for (DPHueLight *light in self.lights)
-  {
     light.host = host;
-  }
   
   for (DPHueLightGroup *group in self.groups)
-  {
     group.host = host;
-  }
 }
 
-- (void)readWithCompletion:(void (^)(DPHueBridge *, NSError *))block
-{
+- (void)readWithCompletion:(void (^)(DPHueBridge *, NSError *))block {
   // Cut down on if-checks within completionBlock
   void (^innerBlock)(DPHueBridge *, NSError *) = ^(DPHueBridge *hue, NSError *error) {
     if ( block )
@@ -125,8 +116,7 @@ const DPHueCommandQueueKey* DPHueCommandQueueKeyExpire = @"DPHueCommandQueueKeyE
   
   DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:request sender:self];
   connection.completionBlock = ^(DPHueBridge *sender, id json, NSError *err) {
-    if ( err )
-    {
+    if ( err ) {
       innerBlock( nil, err );
       return;
     }
@@ -188,47 +178,33 @@ const DPHueCommandQueueKey* DPHueCommandQueueKeyExpire = @"DPHueCommandQueueKeyE
     });
 }
 
-- (DPHueLight *)lightWithId:(NSNumber *)lightId
-{
+- (DPHueLight *)lightWithId:(NSNumber *)lightId {
   for ( DPHueLight *light in self.lights )
-  {
     if ( [light.number isEqualToNumber:lightId] )
       return light;
-  }
-  
   return nil;
 }
 
-- (DPHueLight *)lightWithName:(NSString *)lightName
-{
+- (DPHueLight *)lightWithName:(NSString *)lightName {
   for ( DPHueLight *light in self.lights )
-  {
     if ( [light.name isEqualToString:lightName] )
       return light;
-  }
-  
   return nil;
 }
 
-- (DPHueLightGroup *)groupWithId:(NSNumber *)groupId
-{
+- (DPHueLightGroup *)groupWithId:(NSNumber *)groupId {
   for ( DPHueLightGroup *group in self.groups )
-  {
     if ( [group.number isEqualToNumber:groupId] )
       return group;
-  }
   
   return nil;
 }
 
-- (DPHueLightGroup *)groupWithName:(NSString *)groupName
-{
+- (DPHueLightGroup *)groupWithName:(NSString *)groupName {
   for ( DPHueLightGroup *group in self.groups )
-  {
     if ( [group.name isEqualToString:groupName] )
       return group;
-  }
-  
+ 
   return nil;
 }
 

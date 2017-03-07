@@ -108,7 +108,6 @@
     [coder encodeObject:_username forKey:@"username"];
 }
 
-
 #pragma mark - Setters that update pendingChanges
 
 - (void)setOn:(BOOL)on {
