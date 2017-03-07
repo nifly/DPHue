@@ -36,14 +36,12 @@ const DPHueCommandQueueKey* DPHueCommandQueueKeyExpire = @"DPHueCommandQueueKeyE
     NSArray* commandQueue;
 }
 
-- (id)initWithHueHost:(NSString *)host generatedUsername:(NSString * _Nullable)generatedUsername
-{
-  if ( self = [super init] )
-  {
-    _deviceType = @"QuickHue";
+- (id)initWithHueHost:(NSString *)aHost generatedUsername:(NSString * _Nullable)aGeneratedUsername deviceType:(NSString * _Nullable)aDeviceType {
+  if (self = [super init]) {
+    _deviceType = aDeviceType ?: @"QuickHue";
     _authenticated = NO;
-    _host = host;
-    _generatedUsername = generatedUsername;
+    _host = aHost;
+    _generatedUsername = aGeneratedUsername;
   }
   
   return self;
@@ -54,7 +52,7 @@ const DPHueCommandQueueKey* DPHueCommandQueueKeyExpire = @"DPHueCommandQueueKeyE
 - (id)initWithCoder:(NSCoder *)a {
     self = [super init];
     if (self) {
-        _deviceType = @"QuickHue";
+        _deviceType = [a decodeObjectForKey:@"deviceType"] ?: @"QuickHue";
         _legacyUsername = [a decodeObjectForKey:@"username"];
         _generatedUsername = [a decodeObjectForKey:@"generatedUsername"];
         _host = [a decodeObjectForKey:@"host"];
@@ -78,6 +76,7 @@ const DPHueCommandQueueKey* DPHueCommandQueueKeyExpire = @"DPHueCommandQueueKeyE
     [a encodeObject:_generatedUsername forKey:@"generatedUsername"];
     if (_legacyUsername)
         [a encodeObject:_legacyUsername forKey:@"username"];
+    [a encodeObject:_deviceType forKey:@"deviceType"];
 }
 
 - (void)setGeneratedUsername:(NSString *)generatedUsername

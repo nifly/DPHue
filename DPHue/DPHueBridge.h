@@ -70,13 +70,15 @@
 /**
  * Generate a DPHueBridge object with the given parameters.
  *
- * @param host
+ * @param aHost
  *          The hostname or IP of the Hue controller you want to talk to.
- * @param generatedUsername
+ * @param aGeneratedUsername
  *          An md5 string from a previously successful call to @p [DPHueBridge registerDevice].
  *          If this is your first time interacting with the controller, use @p nil.
+ * @param aDeviceType
+ *          A string identifier that will be used to identify the service using the bridge.
  */
-- (id)initWithHueHost:(NSString *)host generatedUsername:(NSString * _Nullable)generatedUsername;
+- (id)initWithHueHost:(NSString *)aHost generatedUsername:(NSString * _Nullable)aGeneratedUsername deviceType:(NSString * _Nullable)aDeviceType;
 
 /**
  Download the complete state of the Hue controller, including the state
