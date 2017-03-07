@@ -10,6 +10,7 @@
 #import "DPHueLightGroup.h"
 #import "DPJSONConnection.h"
 #import "DPHueBridge.h"
+#import "NSNumber+Clamp.h"
 
 @interface DPHueLightGroup ()
 
@@ -95,16 +96,16 @@
 
 - (void)setBrightness:(NSNumber *)brightness
 {
-  _brightness = brightness;
-  self.pendingChanges[@"bri"] = brightness;
+  _brightness = [brightness clampFrom: @0 to: @255];
+  self.pendingChanges[@"bri"] = _brightness;
   if (!self.holdUpdates)
     [self write];
 }
 
 - (void)setHue:(NSNumber *)hue
 {
-  _hue = hue;
-  self.pendingChanges[@"hue"] = hue;
+  _hue = [hue clampFrom: @0 to: @65535];
+  self.pendingChanges[@"hue"] = _hue;
   if (!self.holdUpdates)
     [self write];
 }
@@ -119,8 +120,8 @@
 
 - (void)setColorTemperature:(NSNumber *)colorTemperature
 {
-  _colorTemperature = colorTemperature;
-  self.pendingChanges[@"ct"] = colorTemperature;
+  _colorTemperature = [colorTemperature clampFrom: @154 to: @500];
+  self.pendingChanges[@"ct"] = _colorTemperature;
   if (!self.holdUpdates)
     [self write];
 }
@@ -135,23 +136,44 @@
 
 - (void)setSaturation:(NSNumber *)saturation
 {
-  _saturation = saturation;
-  self.pendingChanges[@"sat"] = saturation;
+  _saturation = [saturation clampFrom: @0 to:@255];
+  self.pendingChanges[@"sat"] = _saturation;
   if (!self.holdUpdates)
     [self write];
 }
 
+- (BOOL)hasPendingChanges {
+    return self.pendingChanges.count > 0;
+}
+
 #pragma mark - Public API
 
-- (void)read
+- (void)readWithCompletionHandler:(void(^ _Nullable )(NSError* _Nullable error))completion
 {
   NSURLRequest *request = [self requestForGettingGroupState];
   DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:request sender:self];
   connection.completionBlock = ^(DPHueLightGroup *sender, id json, NSError *err) {
-    if ( err )
+    if ( err ) {
+      if (completion) {
+        completion(err);
+      }
       return;
+    }
+
+    if ([json isKindOfClass:[NSArray class]]) {
+      NSString *errorDescription = ((NSArray*)json).firstObject[@"error"][@"description"];
+      if (errorDescription) {
+        if (completion) {
+          completion([NSError errorWithDomain:@"DPHue" code:5 userInfo:@{NSLocalizedDescriptionKey: errorDescription}]);
+        }
+        return;
+      }
+    }
     
     [sender parseGroupStateGet:json];
+    if (completion) {
+      completion(nil);
+    }
   };
   
     if (_bridge) {
@@ -161,14 +183,19 @@
     }
 }
 
-- (void)writeAll
+- (void)read
+{
+    [self readWithCompletionHandler:nil];
+}
+
+- (void)writeAllWithCompletionHandler:(void (^ _Nullable )(NSError * _Nullable))completion
 {
   if (!self.on)
   {
     // If bulb is off, it forbids changes, so send none
     // except to turn it off
     self.pendingChanges[@"on"] = [NSNumber numberWithBool:self.on];
-    [self write];
+    [self writeWithCompletionHandler:completion];
     return;
   }
   
@@ -191,10 +218,14 @@
     self.pendingChanges[@"ct"] = self.colorTemperature;
   }
   
-  [self write];
+  [self writeWithCompletionHandler:completion];
 }
 
-- (void)write
+- (void)writeAll {
+    [self writeAllWithCompletionHandler:nil];
+}
+
+- (void)writeWithCompletionHandler:(void(^ _Nullable )(NSError* _Nullable error))completion
 {
   if (!self.pendingChanges.count)
     return;
@@ -211,10 +242,23 @@
   
   DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:request sender:self];
   connection.completionBlock = ^(DPHueLightGroup *sender, id json, NSError *err) {
-    if ( err )
+    if ( err ) {
+      if (completion) {
+        completion(err);
+      }
       return;
-    
+    }
+
     [sender parseGroupStateSet:json];
+
+    if (completion) {
+      if (self.writeSuccess) {
+        completion(nil);
+      }
+      else {
+        completion([NSError errorWithDomain:@"DPHue" code:2 userInfo:@{NSLocalizedDescriptionKey: self.writeMessage}]);
+      }
+    }
   };
   
     if (_bridge) {
@@ -223,6 +267,11 @@
         [connection start];
     }
 }
+
+- (void)write {
+    [self writeWithCompletionHandler:nil];
+}
+
 
 - (NSString *)description
 {
@@ -332,7 +381,7 @@
   {
     NSString *idStr = result[@"success"][@"id"];
     NSError *error = nil;
-    NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:@"^/groups/(\\d+)$"
+    NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:@"^(?:/groups/)?(\\d+)$"
                                                                            options:NSRegularExpressionCaseInsensitive
                                                                              error:&error];
     NSTextCheckingResult *match;
@@ -402,7 +451,6 @@
   if (errorFound)
   {
     _writeSuccess = NO;
-    NSLog(@"Error writing values!\n%@", _writeMessage);
   }
   else
   {

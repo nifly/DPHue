@@ -155,15 +155,15 @@
           <br />
           The completion block takes two parameters:
           <ul>
-          <li>success<br />
-                Indicates whether the creation succeeded according to the controller
+          <li>error<br />
+                Holds the error, if any
           </li>
           <li>group<br />
-                The resultant group.
+                The resultant group, if created (i.e. no error occurred)
           </li>
           </ul>
  */
-- (void)createGroupWithName:(NSString *)name lightIds:(NSArray *)lightIds onCompletion:(void (^)(BOOL success, DPHueLightGroup* group))onCompletionBlock;
+- (void)createGroupWithName:(NSString *)name lightIds:(NSArray *)lightIds onCompletion:(void (^)(NSError* _Nullable success, DPHueLightGroup* _Nullable group))onCompletionBlock;
 
 /**
  Update the given group on the controller.

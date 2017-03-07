@@ -10,6 +10,7 @@
 #import "DPHueLight.h"
 #import "DPHueBridge.h"
 #import "DPJSONConnection.h"
+#import "NSNumber+Clamp.h"
 #import "WSLog.h"
 
 
@@ -35,8 +36,11 @@
 
 - (void)performCommonInit
 {
-  self.holdUpdates = YES;
-  self.pendingChanges = [NSMutableDictionary new];
+  _number = @-1;
+  _username = @"";
+  _host = @"";
+  _holdUpdates = YES;
+  _pendingChanges = [NSMutableDictionary new];
 }
 
 - (NSString *)description {
@@ -108,15 +112,6 @@
 
 #pragma mark - Setters that update pendingChanges
 
-NSNumber* _clampNumber(NSNumber* number, NSInteger low, NSInteger high) {
-    NSInteger val = number.integerValue;
-    if (val > high)
-        return @(high);
-    if (val < low)
-        return @(low);
-    return number;
-}
-
 - (void)setOn:(BOOL)on {
     _on = on;
     self.pendingChanges[@"on"] = [NSNumber numberWithBool:on];
@@ -125,15 +120,15 @@ NSNumber* _clampNumber(NSNumber* number, NSInteger low, NSInteger high) {
 }
 
 - (void)setBrightness:(NSNumber *)brightness {
-    _brightness = (brightness = _clampNumber(brightness, 0, 255));
-    self.pendingChanges[@"bri"] = brightness;
+    _brightness = [brightness clampFrom: @0 to: @255];
+    self.pendingChanges[@"bri"] = _brightness;
     if (!self.holdUpdates)
         [self write];
 }
 
 - (void)setHue:(NSNumber *)hue {
-    _hue = (hue = _clampNumber(hue, 0, 65535));
-    self.pendingChanges[@"hue"] = hue;
+    _hue = [hue clampFrom: @0 to: @65535];
+    self.pendingChanges[@"hue"] = _hue;
     if (!self.holdUpdates)
         [self write];
 }
@@ -147,8 +142,8 @@ NSNumber* _clampNumber(NSNumber* number, NSInteger low, NSInteger high) {
 }
 
 - (void)setColorTemperature:(NSNumber *)colorTemperature {
-    _colorTemperature = (colorTemperature = _clampNumber(colorTemperature, 154, 500));
-    self.pendingChanges[@"ct"] = colorTemperature;
+    _colorTemperature = [colorTemperature clampFrom: @154 to: @500];
+    self.pendingChanges[@"ct"] = _colorTemperature;
     if (!self.holdUpdates)
         [self write];
 }
@@ -162,12 +157,15 @@ NSNumber* _clampNumber(NSNumber* number, NSInteger low, NSInteger high) {
 }
 
 - (void)setSaturation:(NSNumber *)saturation {
-    _saturation = saturation;
-    self.pendingChanges[@"sat"] = (saturation = _clampNumber(saturation, 0, 255));
+    _saturation = [saturation clampFrom: @0 to: @255];
+    self.pendingChanges[@"sat"] = _saturation;
     if (!self.holdUpdates)
         [self write];
 }
 
+- (BOOL)hasPendingChanges {
+    return self.pendingChanges.count > 0;
+}
 
 #pragma mark - Public API
 
@@ -182,19 +180,29 @@ NSNumber* _clampNumber(NSNumber* number, NSInteger low, NSInteger high) {
     [self.pendingChanges addEntriesFromDictionary:pendingChanges];
 }
 
-- (void)readWithSuccess:(void(^)(BOOL success))onCompleted {
+- (void)readWithCompletionHandler:(void (^)(NSError * _Nullable))completion {
     NSURLRequest *request = [self requestForGettingLightState];
     DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:request sender:self];
     connection.completionBlock = ^(DPHueLight *sender, id json, NSError *err) {
         if (err) {
-            if (onCompleted)
-                onCompleted(NO);
+            if (completion)
+                completion(err);
             return;
+        }
+
+        if ([json isKindOfClass:[NSArray class]]) {
+          NSString *errorDescription = ((NSArray*)json).firstObject[@"error"][@"description"];
+          if (errorDescription) {
+            if (completion) {
+              completion([NSError errorWithDomain:@"DPHue" code:5 userInfo:@{NSLocalizedDescriptionKey: errorDescription}]);
+            }
+            return;
+          }
         }
         
         [sender parseLightStateGet:json];
-        if (onCompleted)
-            onCompleted(YES);
+        if (completion)
+            completion(nil);
     };
     
     if (_bridge) {
@@ -205,15 +213,15 @@ NSNumber* _clampNumber(NSNumber* number, NSInteger low, NSInteger high) {
 }
 
 - (void)read {
-    [self readWithSuccess:nil];
+    [self readWithCompletionHandler:nil];
 }
 
-- (void)writeAll {
+- (void)writeAllWithCompletionHandler:(void (^ _Nullable )(NSError * _Nullable))completion {
     if (!self.on) {
         // If bulb is off, it forbids changes, so send none
         // except to turn it off
         self.pendingChanges[@"on"] = [NSNumber numberWithBool:self.on];
-        [self write];
+        [self writeWithCompletionHandler:completion];
         return;
     }
     self.pendingChanges[@"on"] = [NSNumber numberWithBool:self.on];
@@ -231,11 +239,14 @@ NSNumber* _clampNumber(NSNumber* number, NSInteger low, NSInteger high) {
     if ([self.colorMode isEqualToString:@"ct"]) {
         self.pendingChanges[@"ct"] = self.colorTemperature;
     }
-    [self write];
+    [self writeWithCompletionHandler:completion];
 }
 
-- (void)write
-{
+- (void)writeAll {
+    [self writeAllWithCompletionHandler:nil];
+}
+
+- (void)writeWithCompletionHandler:(void(^ _Nullable )(NSError* _Nullable error))onCompleted {
   if (!self.pendingChanges.count)
     return;
   
@@ -251,10 +262,23 @@ NSNumber* _clampNumber(NSNumber* number, NSInteger low, NSInteger high) {
 
   DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:request sender:self];
   connection.completionBlock = ^(DPHueLight *sender, id json, NSError *err) {
-    if ( err )
+    if ( err ) {
+      if (onCompleted) {
+        onCompleted(err);
+      }
       return;
+    }
     
     [sender parseLightStateSet:json];
+
+    if (onCompleted) {
+      if (self.writeSuccess) {
+        onCompleted(nil);
+      }
+      else {
+        onCompleted([NSError errorWithDomain:@"DPHue" code:1 userInfo:@{NSLocalizedDescriptionKey: self.writeMessage}]);
+      }
+    }
   };
    
     if (_bridge) {
@@ -262,6 +286,10 @@ NSNumber* _clampNumber(NSNumber* number, NSInteger low, NSInteger high) {
     } else {
         [connection start];
     }
+}
+
+- (void)write {
+    [self writeWithCompletionHandler:nil];
 }
 
 
@@ -349,7 +377,6 @@ NSNumber* _clampNumber(NSNumber* number, NSInteger low, NSInteger high) {
   if (errorFound)
   {
     _writeSuccess = NO;
-    NSLog(@"Error writing values!\n%@", _writeMessage);
   }
   else
   {

@@ -68,6 +68,8 @@
  */
 @property (nonatomic, assign) BOOL holdUpdates;
 
+/// YES if it has pending changes that haven't been yet written, otherwise NO
+@property (nonatomic, readonly) BOOL hasPendingChanges;
 
 #pragma mark - Properties you may be interested in reading
 
@@ -99,10 +101,19 @@
 #pragma mark - Methods
 
 /// Re-download & parse controller's state for this particular group
+- (void)readWithCompletionHandler:(void(^ _Nullable )(NSError* _Nullable error))completion;
+
+/// Re-download & parse controller's state for this particular group
 - (void)read;
 
 /// Write only pending changes to controller
+- (void)writeWithCompletionHandler:(void(^ _Nullable )(NSError* _Nullable error))onCompleted;
+
+/// Write only pending changes to controller
 - (void)write;
+
+/// Write entire state to controller, regardless of changes
+- (void)writeAllWithCompletionHandler:(void(^ _Nullable )(NSError* _Nullable error))onCompleted;
 
 /// Write entire state to controller, regardless of changes
 - (void)writeAll;
