@@ -180,7 +180,7 @@
     [self.pendingChanges addEntriesFromDictionary:pendingChanges];
 }
 
-- (void)readWithCompletionHandler:(void (^)(NSError * _Nullable))completion {
+- (void)readWithCompletionHandler:(void (^ _Nullable )(NSError * _Nullable))completion {
     NSURLRequest *request = [self requestForGettingLightState];
     DPJSONConnection *connection = [[DPJSONConnection alloc] initWithRequest:request sender:self];
     connection.completionBlock = ^(DPHueLight *sender, id json, NSError *err) {
