@@ -10,7 +10,6 @@
 #import "DPHueLight.h"
 #import "DPHueBridge.h"
 #import "DPJSONConnection.h"
-#import "NSNumber+Clamp.h"
 #import "WSLog.h"
 
 
@@ -120,15 +119,13 @@
 }
 
 - (void)setBrightness:(NSNumber *)brightness {
-    _brightness = [brightness clampFrom: @0 to: @255];
-    self.pendingChanges[@"bri"] = _brightness;
+    self.pendingChanges[@"bri"] = (_brightness = @(_clamp_int(brightness.integerValue, 0, 255)));
     if (!self.holdUpdates)
         [self write];
 }
 
 - (void)setHue:(NSNumber *)hue {
-    _hue = [hue clampFrom: @0 to: @65535];
-    self.pendingChanges[@"hue"] = _hue;
+    self.pendingChanges[@"hue"] = (_hue = @(_clamp_int(hue.integerValue, 0, 65535)));
     if (!self.holdUpdates)
         [self write];
 }
@@ -142,8 +139,7 @@
 }
 
 - (void)setColorTemperature:(NSNumber *)colorTemperature {
-    _colorTemperature = [colorTemperature clampFrom: @154 to: @500];
-    self.pendingChanges[@"ct"] = _colorTemperature;
+    self.pendingChanges[@"ct"] = (_colorTemperature = @(_clamp_int(colorTemperature.integerValue, 154, 500)));
     if (!self.holdUpdates)
         [self write];
 }
@@ -157,8 +153,7 @@
 }
 
 - (void)setSaturation:(NSNumber *)saturation {
-    _saturation = [saturation clampFrom: @0 to: @255];
-    self.pendingChanges[@"sat"] = _saturation;
+    self.pendingChanges[@"sat"] = (_saturation = @(_clamp_int(saturation.integerValue, 0, 255)));
     if (!self.holdUpdates)
         [self write];
 }
@@ -386,6 +381,10 @@
   }
   
   return self;
+}
+
+NSInteger _clamp_int(NSInteger number, NSInteger min, NSInteger max) {
+    return number < min ? min : (number > max ? max : number);
 }
 
 @end

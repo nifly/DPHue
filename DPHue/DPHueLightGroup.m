@@ -10,7 +10,7 @@
 #import "DPHueLightGroup.h"
 #import "DPJSONConnection.h"
 #import "DPHueBridge.h"
-#import "NSNumber+Clamp.h"
+#import "DPHueLight.h"
 
 @interface DPHueLightGroup ()
 
@@ -94,18 +94,14 @@
     [self write];
 }
 
-- (void)setBrightness:(NSNumber *)brightness
-{
-  _brightness = [brightness clampFrom: @0 to: @255];
-  self.pendingChanges[@"bri"] = _brightness;
+- (void)setBrightness:(NSNumber *)brightness {
+  self.pendingChanges[@"bri"] = (_brightness = @(_clamp_int(brightness.integerValue, 0, 255)));
   if (!self.holdUpdates)
     [self write];
 }
 
-- (void)setHue:(NSNumber *)hue
-{
-  _hue = [hue clampFrom: @0 to: @65535];
-  self.pendingChanges[@"hue"] = _hue;
+- (void)setHue:(NSNumber *)hue {
+  self.pendingChanges[@"hue"] = (_hue = @(_clamp_int(hue.integerValue, 0, 65535)));
   if (!self.holdUpdates)
     [self write];
 }
@@ -118,10 +114,8 @@
     [self write];
 }
 
-- (void)setColorTemperature:(NSNumber *)colorTemperature
-{
-  _colorTemperature = [colorTemperature clampFrom: @154 to: @500];
-  self.pendingChanges[@"ct"] = _colorTemperature;
+- (void)setColorTemperature:(NSNumber *)colorTemperature {
+  self.pendingChanges[@"ct"] = (_colorTemperature = @(_clamp_int(colorTemperature.integerValue, 154, 500)));
   if (!self.holdUpdates)
     [self write];
 }
@@ -134,10 +128,8 @@
     [self write];
 }
 
-- (void)setSaturation:(NSNumber *)saturation
-{
-  _saturation = [saturation clampFrom: @0 to:@255];
-  self.pendingChanges[@"sat"] = _saturation;
+- (void)setSaturation:(NSNumber *)saturation {
+  self.pendingChanges[@"sat"] = (_saturation = @(_clamp_int(saturation.integerValue, 0, 255)));
   if (!self.holdUpdates)
     [self write];
 }

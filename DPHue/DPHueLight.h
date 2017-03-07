@@ -133,6 +133,8 @@
 /// Write entire state to controller, regardless of changes
 - (void)writeAll;
 
+NSInteger _clamp_int(NSInteger number, NSInteger min, NSInteger max);
+
 @end
 
 
