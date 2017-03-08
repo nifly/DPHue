@@ -36,6 +36,10 @@ const DPHueCommandQueueKey* DPHueCommandQueueKeyExpire = @"DPHueCommandQueueKeyE
     NSArray* commandQueue;
 }
 
+- (id)initWithHueHost:(NSString *)host generatedUsername:(NSString * _Nullable)generatedUsername {
+    return [self initWithHueHost:host generatedUsername:generatedUsername deviceType:nil];
+}
+
 - (id)initWithHueHost:(NSString *)aHost generatedUsername:(NSString * _Nullable)aGeneratedUsername deviceType:(NSString * _Nullable)aDeviceType {
   if (self = [super init]) {
     _deviceType = aDeviceType ?: @"QuickHue";
@@ -43,7 +47,6 @@ const DPHueCommandQueueKey* DPHueCommandQueueKeyExpire = @"DPHueCommandQueueKeyE
     _host = aHost;
     _generatedUsername = aGeneratedUsername;
   }
-  
   return self;
 }
 
