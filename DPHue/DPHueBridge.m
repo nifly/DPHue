@@ -394,7 +394,7 @@ const DPHueCommandQueueKey* DPHueCommandQueueKeyExpire = @"DPHueCommandQueueKeyE
   NSAssert([self.host length], @"No host set");
   
   NSString *urlPath = [NSString stringWithFormat:@"http://%@/api/%@",
-                       self.host, self.generatedUsername];
+                       self.host, self.generatedUsername ?: @""];
   NSURL *url = [NSURL URLWithString:urlPath];
   
   NSURLRequest *request = [NSURLRequest requestWithURL:url];
