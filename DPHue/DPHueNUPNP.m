@@ -24,7 +24,7 @@
 
 - (NSURLRequest *)requestForDiscovery
 {
-  NSURL *url = [NSURL URLWithString:@"https://www.meethue.com/api/nupnp"];
+  NSURL *url = [NSURL URLWithString:@"https://discovery.meethue.com"];
   return [NSURLRequest requestWithURL:url];
 }
 

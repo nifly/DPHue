@@ -66,8 +66,8 @@ NSString* _MacAddressWithSeparators(NSString* aMacAddress) {
     __block DPHueDiscover* sSelf = self;
    
     AppendLogStr(log, @"Starting discovery, via meethue.com API first");
-    AppendLogStr(log, @"Making request to https://www.meethue.com/api/nupnp");
-    DPJSONConnection* connection = [[DPJSONConnection alloc] initWithRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://www.meethue.com/api/nupnp"]] sender:nil];
+    AppendLogStr(log, @"Making request to https://discovery.meethue.com");
+    DPJSONConnection* connection = [[DPJSONConnection alloc] initWithRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://discovery.meethue.com"]] sender:nil];
     connection.completionBlock = ^(DPHueDiscover* sender, id json, NSError* err) {
         // If there was an error, use SSDP discovery...
         if (err) {
